@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>수아동혁가족 BMI 비교UI대시보드AI - 배포용</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial}</style>
+
+  <!-- Firebase 설정 JSON을 여기에 붙여넣으세요 -->
+  <!-- 예시:
+  <script>
+    const __firebase_config = '{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}';
+  </script>
+  -->
+
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+  <div id="root"></div>
+
+  <script type="module">
+    try {
+      if (typeof __firebase_config === 'undefined') {
+        console.warn('경고: __firebase_config 가 정의되어 있지 않습니다. 실시간 저장 기능을 사용하려면 Firebase 설정을 삽입하세요.');
+      }
+    } catch(e) { console.warn(e); }
+
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+    import { getAuth, signInAnonymously, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+    import { getFirestore, doc, setDoc, onSnapshot, collection } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+    window.firebaseRuntime = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, getFirestore, doc, setDoc, onSnapshot, collection };
+
+    window.initFirebaseApp = function() {
+      if (typeof __firebase_config === 'undefined') return null;
+      let cfg;
+      try { cfg = JSON.parse(__firebase_config); } catch(e) { console.error('Firebase config JSON 파싱 실패:', e); return null; }
+      try { return initializeApp(cfg); } catch(e) { console.error('Firebase 초기화 실패:', e); return null; }
+    };
+  </script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const initialFamilyData = {
+      dad: { id: 'dad', name: '민철', emoji: '👨‍🦳', dob: '1971-05-05', height: 178, weight: 95, age: 54, desc: '백발, 현재 집에만 계심', recommendedWeight: 79.2, recommendedBMI: 25 },
+      mom: { id: 'mom', name: '선영', emoji: '👩‍💼', dob: '1970-11-15', height: 177, weight: 75, age: 54, desc: '국민은행 부지점장, 통뼈', recommendedWeight: 72.1, recommendedBMI: 23 },
+      daughter: { id: 'daughter', name: '수아', emoji: '🏀', dob: '2005-01-09', height: 171, weight: 71, age: 20, desc: '한국체대 3학년, 농구 주전 센터', recommendedWeight: 70.2, recommendedBMI: 24 },
+      son: { id: 'son', name: '동혁', emoji: '✈️', dob: '2007-02-19', height: 187, weight: 71, age: 18, desc: '고3 수험생, 스튜어드 희망', recommendedWeight: 76.9, recommendedBMI: 22 }
+    };
+
+    const FamilyMember = ({ memberData, onUpdate, baseData }) => {
+      const [localData, setLocalData] = useState(memberData);
+      useEffect(() => setLocalData(memberData), [memberData]);
+      const handleChange = (field, value) => setLocalData(prev => ({ ...prev, [field]: value }));
+      const calculateBMI = (dataToSave) => {
+        if (!dataToSave.weight || dataToSave.weight <= 0) return;
+        onUpdate({ ...dataToSave, id: baseData.id });
+      };
+      const heightM = baseData.height / 100;
+      const currentBmi = localData.weight ? (localData.weight / (heightM * heightM)).toFixed(2) : 'N/A';
+      let category = 'N/A';
+      if (currentBmi !== 'N/A') { category = currentBmi < 18.5 ? '저체중' : currentBmi < 25 ? '정상' : currentBmi < 30 ? '과체중' : '비만'; }
+
+      return (
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 space-y-4">
+          <div className="flex items-center space-x-3">
+            <span className="text-4xl">{baseData.emoji}</span>
+            <div>
+              <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{baseData.name} ({baseData.age}세)</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{baseData.desc}</p>
+            </div>
+          </div>
+          <div className="bg-indigo-50 dark:bg-indigo-900/50 p-3 rounded-lg text-center">
+            <p className="text-sm text-indigo-800 dark:text-indigo-200 font-semibold">현재 BMI: {currentBmi} ({category})</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-slate-600 dark:text-slate-300">현재 체중 (kg):</label>
+              <input type="number" value={localData.weight || ''} onChange={e => handleChange('weight', e.target.value)} step="0.1" className="w-full p-2 border rounded-md" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-slate-600 dark:text-slate-300">목표 체중 (kg):</label>
+              <input type="number" value={localData.targetWeight || ''} onChange={e => handleChange('targetWeight', e.target.value)} step="0.1" className="w-full p-2 border rounded-md" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-slate-600 dark:text-slate-300">측정 날짜:</label>
+              <input type="date" value={localData.date || ''} onChange={e => handleChange('date', e.target.value)} className="w-full p-2 border rounded-md" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-slate-600 dark:text-slate-300">체형 선택:</label>
+              <select value={localData.bodyType || 'normal'} onChange={e => handleChange('bodyType', e.target.value)} className="w-full p-2 border rounded-md">
+                <option value="normal">보통</option><option value="muscle">통뼈/근육형</option><option value="slim">마른 체형</option><option value="obese">비만 체형</option>
+              </select>
+            </div>
+          </div>
+
+          <button onClick={() => calculateBMI(localData)} className="w-full bg-indigo-600 text-white p-3 rounded-lg">실시간 저장</button>
+        </div>
+      );
+    };
+
+    const BMIGraph = ({ familyHealthData }) => {
+      const chartRef = useRef(null);
+      const chartInstance = useRef(null);
+      useEffect(() => {
+        if (!familyHealthData) return;
+        Chart.register(ChartDataLabels);
+        const labels = Object.values(initialFamilyData).map(d => d.name);
+        const createDataset = (dataKey, defaultKey) => Object.keys(initialFamilyData).map(id => {
+          const memberData = familyHealthData[id] || {};
+          const weight = parseFloat(memberData[dataKey]) || parseFloat(memberData[defaultKey]) || initialFamilyData[id].weight;
+          const height = initialFamilyData[id].height / 100;
+          return (weight / (height * height)).toFixed(2);
+        });
+        const currentBmis = createDataset('weight', 'weight');
+        const targetBmis = createDataset('targetWeight', 'weight');
+        const recommendedBmis = Object.values(initialFamilyData).map(d => d.recommendedBMI);
+        const currentWeights = Object.keys(initialFamilyData).map(id => { const m = familyHealthData[id] || {}; const w = parseFloat(m.weight) || initialFamilyData[id].weight; return w.toFixed(1); });
+        const targetWeights = Object.keys(initialFamilyData).map(id => { const m = familyHealthData[id] || {}; const w = parseFloat(m.targetWeight) || initialFamilyData[id].weight; return w.toFixed(1); });
+        const recommendedWeights = Object.values(initialFamilyData).map(d => d.recommendedWeight.toFixed(1));
+
+        if (chartInstance.current) chartInstance.current.destroy();
+        chartInstance.current = new Chart(chartRef.current, {
+          type: 'line', data: { labels, datasets: [
+            { label: '현재 BMI', data: currentBmis, borderColor: '#14b8a6', backgroundColor: '#14b8a6', tension: 0.2, datalabels: { formatter: (v, c) => `${v} (${currentWeights[c.dataIndex]}kg)` } },
+            { label: '목표 BMI', data: targetBmis, borderColor: '#f43f5e', backgroundColor: '#f43f5e', tension: 0.2, datalabels: { formatter: (v, c) => `${v} (${targetWeights[c.dataIndex]}kg)` } },
+            { label: 'AI 추천 BMI', data: recommendedBmis, borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.2, datalabels: { formatter: (v, c) => `${v} (${recommendedWeights[c.dataIndex]}kg)` } }
+          ]},
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: { y: { beginAtZero: false, min: 15, max: 35 } },
+            plugins: { legend: { position: 'top' }, title: { display: true, text: '가족 BMI 통합 그래프' }, datalabels: { align: 'top' } }
+          }
+        });
+      }, [familyHealthData]);
+      return <div className="h-80 md:h-96"><canvas ref={chartRef}></canvas></div>;
+    };
+
+    const InfoTables = () => (
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 space-y-6">
+        <div>
+          <h3 className="text-xl font-bold text-indigo-600 mb-2">📊 BMI 기준 정보</h3>
+          <p className="text-sm text-slate-500 mb-4">BMI = 체중(kg) ÷ (키(m) × 키(m))</p>
+        </div>
+      </div>
+    );
+
+    const App = () => {
+      const [db, setDb] = useState(null);
+      const [userId, setUserId] = useState(null);
+      const [familyHealthData, setFamilyHealthData] = useState({});
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+
+      useEffect(() => {
+        const app = window.initFirebaseApp();
+        if (!app) { setLoading(false); return; }
+        const auth = window.firebaseRuntime.getAuth(app);
+        const firestoreDb = window.firebaseRuntime.getFirestore(app);
+        setDb(firestoreDb);
+        window.firebaseRuntime.signInAnonymously(auth).then(cred => { if (cred && cred.user) setUserId(cred.user.uid); }).catch(e => { console.error(e); setError('익명 로그인 실패'); setLoading(false); });
+      }, []);
+
+      useEffect(() => {
+        if (!db) return;
+        setLoading(true);
+        const appId = 'family-bmi-dashboard';
+        const collectionPath = `artifacts/${appId}/public/data/familyHealth`;
+        const collectionRef = window.firebaseRuntime.collection(db, collectionPath);
+        const unsubscribes = Object.keys(initialFamilyData).map(memberId => {
+          const docRef = window.firebaseRuntime.doc(collectionRef, memberId);
+          return window.firebaseRuntime.onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+              setFamilyHealthData(prev => ({ ...prev, [memberId]: docSnap.data() }));
+            } else {
+              const initialMemberData = { weight: initialFamilyData[memberId].weight, targetWeight: '', date: new Date().toISOString().split('T')[0], bodyType: 'normal' };
+              window.firebaseRuntime.setDoc(docRef, initialMemberData);
+            }
+          }, (err) => { console.error('데이터 수신 오류', err); setError('데이터를 불러오는 중 오류가 발생했습니다.'); });
+        });
+        setLoading(false);
+        return () => unsubscribes.forEach(u => u && u());
+      }, [db]);
+
+      const handleUpdateMember = async (dataToSave) => {
+        if (!db) return;
+        try {
+          const appId = 'family-bmi-dashboard';
+          const collectionPath = `artifacts/${appId}/public/data/familyHealth`;
+          const docRef = window.firebaseRuntime.doc(db, collectionPath, dataToSave.id);
+          await window.firebaseRuntime.setDoc(docRef, dataToSave, { merge: true });
+        } catch(e) { console.error('저장 오류', e); setError('데이터 저장에 실패했습니다.'); }
+      };
+
+      if (loading) return <div className="p-10 text-center">로딩 중...</div>;
+      if (error) return <div className="p-10 text-center text-red-500">{error}</div>;
+
+      return (
+        <main className="container mx-auto px-4 py-8">
+          <header className="text-center mb-8">
+            <h1 className="text-3xl font-extrabold text-slate-800 mb-2">수아동혁가족 BMI 비교UI대시보드AI</h1>
+            <p className="text-md text-slate-600">우리 가족 건강, 실시간으로 함께 관리해요!</p>
+          </header>
+          <div className="bg-white rounded-xl shadow-lg p-4 mb-8"><BMIGraph familyHealthData={familyHealthData} /></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {Object.keys(initialFamilyData).map(id => (
+              <FamilyMember key={id} baseData={initialFamilyData[id]} memberData={{...initialFamilyData[id], ...familyHealthData[id]}} onUpdate={handleUpdateMember} />
+            ))}
+          </div>
+          <InfoTables />
+        </main>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>수아동혁가족 BMI 비교UI대시보드AI - 배포용</title>
+  <title>수아동혁가족 BMI 비교UI대시보드AI - 가족전용</title>
   <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
@@ -11,31 +11,31 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial}</style>
-
-  <!-- Firebase 설정 JSON을 여기에 붙여넣으세요 -->
-  <!-- 예시:
+  <style>
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
+    .bg-blue-50, .bg-blue-100 { background-color: #eff6ff; }
+    .bg-green-50, .bg-green-100 { background-color: #ecfdf5; }
+    .bg-yellow-50, .bg-yellow-100 { background-color: #fffbeb; }
+    .bg-red-50, .bg-red-100 { background-color: #fef2f2; }
+    .bg-blue-50.dark, .bg-blue-100.dark { background-color: #172554; }
+    .bg-green-50.dark, .bg-green-100.dark { background-color: #064e3b; }
+    .bg-yellow-50.dark, .bg-yellow-100.dark { background-color: #53450e; }
+    .bg-red-50.dark, .bg-red-100.dark { background-color: #7f1d1d; }
+  </style>
   <script>
-    const __firebase_config = '{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}';
+    const __firebase_config = '{"apiKey":"YOUR_API_KEY","authDomain":"YOUR_AUTH_DOMAIN","projectId":"YOUR_PROJECT_ID","storageBucket":"YOUR_STORAGE_BUCKET","messagingSenderId":"YOUR_MESSAGING_SENDER_ID","appId":"YOUR_APP_ID"}';
+    const FAMILY_PASSWORD = "1115";
   </script>
-  -->
-
 </head>
 <body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200">
   <div id="root"></div>
 
   <script type="module">
-    try {
-      if (typeof __firebase_config === 'undefined') {
-        console.warn('경고: __firebase_config 가 정의되어 있지 않습니다. 실시간 저장 기능을 사용하려면 Firebase 설정을 삽입하세요.');
-      }
-    } catch(e) { console.warn(e); }
-
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-    import { getAuth, signInAnonymously, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+    import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
     import { getFirestore, doc, setDoc, onSnapshot, collection } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-    window.firebaseRuntime = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, getFirestore, doc, setDoc, onSnapshot, collection };
+    window.firebaseRuntime = { initializeApp, getAuth, signInAnonymously, getFirestore, doc, setDoc, onSnapshot, collection };
 
     window.initFirebaseApp = function() {
       if (typeof __firebase_config === 'undefined') return null;
@@ -55,21 +55,70 @@
       son: { id: 'son', name: '동혁', emoji: '✈️', dob: '2007-02-19', height: 187, weight: 71, age: 18, desc: '고3 수험생, 스튜어드 희망', recommendedWeight: 76.9, recommendedBMI: 22 }
     };
 
+    const PasswordGate = ({ onAccess }) => {
+      const [input, setInput] = useState("");
+      const [error, setError] = useState("");
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (input === FAMILY_PASSWORD) {
+          onAccess(true);
+        } else {
+          setError("비밀번호가 틀렸습니다 ❌");
+        }
+      };
+
+      return (
+        <div className="h-screen flex items-center justify-center bg-slate-200 dark:bg-slate-800">
+          <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-700 p-6 rounded-xl shadow-md space-y-4 w-80">
+            <h1 className="text-lg font-bold text-center text-slate-700 dark:text-slate-200">🔒 가족 전용 대시보드</h1>
+            <input type="password" placeholder="비밀번호 입력" value={input} onChange={e => setInput(e.target.value)} className="w-full p-2 border rounded-md" />
+            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+            <button type="submit" className="w-full p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">접속</button>
+          </form>
+        </div>
+      );
+    };
+
+    function getCardBgByBMI(bmi) {
+      if (bmi < 18.5) return "bg-blue-50 dark";
+      if (bmi < 25) return "bg-green-50 dark";
+      if (bmi < 30) return "bg-yellow-50 dark";
+      return "bg-red-50 dark";
+    }
+
     const FamilyMember = ({ memberData, onUpdate, baseData }) => {
       const [localData, setLocalData] = useState(memberData);
+      const [isSaving, setIsSaving] = useState(false);
+      const [saveStatus, setSaveStatus] = useState('');
+
       useEffect(() => setLocalData(memberData), [memberData]);
+
       const handleChange = (field, value) => setLocalData(prev => ({ ...prev, [field]: value }));
-      const calculateBMI = (dataToSave) => {
-        if (!dataToSave.weight || dataToSave.weight <= 0) return;
-        onUpdate({ ...dataToSave, id: baseData.id });
+
+      const handleSave = async () => {
+        setIsSaving(true);
+        setSaveStatus('저장 중...');
+        try {
+          const dataToSave = { ...localData, weight: Number(localData.weight), targetWeight: Number(localData.targetWeight) };
+          await onUpdate(dataToSave);
+          setSaveStatus('저장 완료! ✅');
+        } catch (e) {
+          console.error('저장 실패:', e);
+          setSaveStatus('저장 실패! ❌');
+        } finally {
+          setTimeout(() => setSaveStatus(''), 2000);
+          setIsSaving(false);
+        }
       };
+
       const heightM = baseData.height / 100;
-      const currentBmi = localData.weight ? (localData.weight / (heightM * heightM)).toFixed(2) : 'N/A';
+      const currentBmi = localData.weight && localData.weight > 0 ? (localData.weight / (heightM * heightM)).toFixed(2) : 'N/A';
       let category = 'N/A';
       if (currentBmi !== 'N/A') { category = currentBmi < 18.5 ? '저체중' : currentBmi < 25 ? '정상' : currentBmi < 30 ? '과체중' : '비만'; }
 
       return (
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 space-y-4">
+        <div className={`${getCardBgByBMI(Number(currentBmi))} rounded-xl shadow-lg p-6 space-y-4 transition-colors`}>
           <div className="flex items-center space-x-3">
             <span className="text-4xl">{baseData.emoji}</span>
             <div>
@@ -102,7 +151,9 @@
             </div>
           </div>
 
-          <button onClick={() => calculateBMI(localData)} className="w-full bg-indigo-600 text-white p-3 rounded-lg">실시간 저장</button>
+          <button onClick={handleSave} disabled={isSaving} className="w-full p-3 rounded-lg transition-colors duration-200 font-bold" style={{backgroundColor: isSaving ? 'gray' : '#4f46e5', color: 'white'}}>
+            {isSaving ? '저장 중...' : saveStatus || '실시간 저장'}
+          </button>
         </div>
       );
     };
@@ -118,7 +169,7 @@
           const memberData = familyHealthData[id] || {};
           const weight = parseFloat(memberData[dataKey]) || parseFloat(memberData[defaultKey]) || initialFamilyData[id].weight;
           const height = initialFamilyData[id].height / 100;
-          return (weight / (height * height)).toFixed(2);
+          return weight > 0 ? (weight / (height * height)).toFixed(2) : null;
         });
         const currentBmis = createDataset('weight', 'weight');
         const targetBmis = createDataset('targetWeight', 'weight');
@@ -130,8 +181,8 @@
         if (chartInstance.current) chartInstance.current.destroy();
         chartInstance.current = new Chart(chartRef.current, {
           type: 'line', data: { labels, datasets: [
-            { label: '현재 BMI', data: currentBmis, borderColor: '#14b8a6', backgroundColor: '#14b8a6', tension: 0.2, datalabels: { formatter: (v, c) => `${v} (${currentWeights[c.dataIndex]}kg)` } },
-            { label: '목표 BMI', data: targetBmis, borderColor: '#f43f5e', backgroundColor: '#f43f5e', tension: 0.2, datalabels: { formatter: (v, c) => `${v} (${targetWeights[c.dataIndex]}kg)` } },
+            { label: '현재 BMI', data: currentBmis, borderColor: '#14b8a6', backgroundColor: '#14b8a6', tension: 0.2, datalabels: { formatter: (v, c) => v ? `${v} (${currentWeights[c.dataIndex]}kg)` : '' } },
+            { label: '목표 BMI', data: targetBmis, borderColor: '#f43f5e', backgroundColor: '#f43f5e', tension: 0.2, datalabels: { formatter: (v, c) => v ? `${v} (${targetWeights[c.dataIndex]}kg)` : '' } },
             { label: 'AI 추천 BMI', data: recommendedBmis, borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.2, datalabels: { formatter: (v, c) => `${v} (${recommendedWeights[c.dataIndex]}kg)` } }
           ]},
           options: {
@@ -149,11 +200,18 @@
         <div>
           <h3 className="text-xl font-bold text-indigo-600 mb-2">📊 BMI 기준 정보</h3>
           <p className="text-sm text-slate-500 mb-4">BMI = 체중(kg) ÷ (키(m) × 키(m))</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div className="bg-blue-100 dark:bg-blue-900/50 p-4 rounded-md">저체중 <br/><span className="font-bold text-lg">~18.5</span></div>
+            <div className="bg-green-100 dark:bg-green-900/50 p-4 rounded-md">정상 <br/><span className="font-bold text-lg">18.5~25</span></div>
+            <div className="bg-yellow-100 dark:bg-yellow-900/50 p-4 rounded-md">과체중 <br/><span className="font-bold text-lg">25~30</span></div>
+            <div className="bg-red-100 dark:bg-red-900/50 p-4 rounded-md">비만 <br/><span className="font-bold text-lg">30~</span></div>
+          </div>
         </div>
       </div>
     );
 
     const App = () => {
+      const [isAuthorized, setIsAuthorized] = useState(false);
       const [db, setDb] = useState(null);
       const [userId, setUserId] = useState(null);
       const [familyHealthData, setFamilyHealthData] = useState({});
@@ -162,15 +220,25 @@
 
       useEffect(() => {
         const app = window.initFirebaseApp();
-        if (!app) { setLoading(false); return; }
+        if (!app) {
+          setError('Firebase 설정이 필요합니다. <script> 태그에 설정을 붙여넣으세요.');
+          setLoading(false);
+          return;
+        }
         const auth = window.firebaseRuntime.getAuth(app);
         const firestoreDb = window.firebaseRuntime.getFirestore(app);
         setDb(firestoreDb);
-        window.firebaseRuntime.signInAnonymously(auth).then(cred => { if (cred && cred.user) setUserId(cred.user.uid); }).catch(e => { console.error(e); setError('익명 로그인 실패'); setLoading(false); });
+        window.firebaseRuntime.signInAnonymously(auth).then(cred => {
+          if (cred && cred.user) setUserId(cred.user.uid);
+        }).catch(e => {
+          console.error(e);
+          setError('익명 로그인 실패');
+          setLoading(false);
+        });
       }, []);
 
       useEffect(() => {
-        if (!db) return;
+        if (!db || !userId) return;
         setLoading(true);
         const appId = 'family-bmi-dashboard';
         const collectionPath = `artifacts/${appId}/public/data/familyHealth`;
@@ -184,21 +252,28 @@
               const initialMemberData = { weight: initialFamilyData[memberId].weight, targetWeight: '', date: new Date().toISOString().split('T')[0], bodyType: 'normal' };
               window.firebaseRuntime.setDoc(docRef, initialMemberData);
             }
-          }, (err) => { console.error('데이터 수신 오류', err); setError('데이터를 불러오는 중 오류가 발생했습니다.'); });
+          }, (err) => {
+            console.error('데이터 수신 오류', err);
+            setError('데이터를 불러오는 중 오류가 발생했습니다.');
+          });
         });
         setLoading(false);
         return () => unsubscribes.forEach(u => u && u());
-      }, [db]);
+      }, [db, userId]);
 
       const handleUpdateMember = async (dataToSave) => {
-        if (!db) return;
+        if (!db) { throw new Error('데이터베이스 연결 실패'); }
         try {
           const appId = 'family-bmi-dashboard';
           const collectionPath = `artifacts/${appId}/public/data/familyHealth`;
           const docRef = window.firebaseRuntime.doc(db, collectionPath, dataToSave.id);
           await window.firebaseRuntime.setDoc(docRef, dataToSave, { merge: true });
-        } catch(e) { console.error('저장 오류', e); setError('데이터 저장에 실패했습니다.'); }
+        } catch(e) { console.error('저장 오류', e); throw e; }
       };
+
+      if (!isAuthorized) {
+        return <PasswordGate onAccess={setIsAuthorized} />;
+      }
 
       if (loading) return <div className="p-10 text-center">로딩 중...</div>;
       if (error) return <div className="p-10 text-center text-red-500">{error}</div>;
@@ -206,10 +281,10 @@
       return (
         <main className="container mx-auto px-4 py-8">
           <header className="text-center mb-8">
-            <h1 className="text-3xl font-extrabold text-slate-800 mb-2">수아동혁가족 BMI 비교UI대시보드AI</h1>
-            <p className="text-md text-slate-600">우리 가족 건강, 실시간으로 함께 관리해요!</p>
+            <h1 className="text-3xl font-extrabold text-slate-800 dark:text-slate-100 mb-2">수아동혁가족 BMI 비교UI대시보드AI</h1>
+            <p className="text-md text-slate-600 dark:text-slate-400">우리 가족 건강, 실시간으로 함께 관리해요!</p>
           </header>
-          <div className="bg-white rounded-xl shadow-lg p-4 mb-8"><BMIGraph familyHealthData={familyHealthData} /></div>
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 mb-8"><BMIGraph familyHealthData={familyHealthData} /></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             {Object.keys(initialFamilyData).map(id => (
               <FamilyMember key={id} baseData={initialFamilyData[id]} memberData={{...initialFamilyData[id], ...familyHealthData[id]}} onUpdate={handleUpdateMember} />
@@ -221,6 +296,10 @@
     };
 
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
+der(<App />);
   </script>
 </body>
 </html>

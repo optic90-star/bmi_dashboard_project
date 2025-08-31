@@ -1,151 +1,754 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>가족 건강 대시보드</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Noto Sans KR', sans-serif; }
-    input:focus {
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.5);
-    }
-  </style>
-</head>
-<body class="bg-gray-900 text-white min-h-screen p-4">
+import React, { useState, useEffect, useRef } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, onSnapshot, collection, query } from 'firebase/firestore';
+import { setLogLevel } from 'firebase/firestore';
+import Chart from 'https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.js';
+import ChartDataLabels from 'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js';
 
-  <div id="app" class="flex flex-col items-center justify-center">
+// Chart.js에 데이터 라벨 플러그인 등록
+Chart.register(ChartDataLabels);
+setLogLevel('debug');
 
-    <!-- Header Section -->
-    <div class="flex flex-col items-center justify-center p-6 bg-gray-800 rounded-2xl shadow-lg border-2 border-green-500 mb-8 w-full max-w-4xl mx-auto">
-      <h1 class="text-3xl font-bold mb-2 text-center">가족 건강 대시보드</h1>
-      <p id="user-id-display" class="text-sm text-gray-400"></p>
-      <p class="text-center mt-2 text-sm text-gray-300">
-        가족 구성원의 신체 정보를 입력하고 BMI 추이를 추적하세요.
-      </p>
-    </div>
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-    <main class="w-full max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
-      
-      <!-- Input Form -->
-      <div class="bg-gray-800 p-6 rounded-2xl shadow-lg border-2 border-purple-500 h-fit">
-        <h2 class="text-2xl font-semibold mb-4">새 데이터 입력</h2>
-        <div class="flex flex-col space-y-4">
-          <input type="text" id="member-name" placeholder="구성원 이름" class="p-3 rounded-xl bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500" />
-          <input type="number" id="height" placeholder="키 (cm)" class="p-3 rounded-xl bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500" />
-          <input type="number" id="weight" placeholder="몸무게 (kg)" class="p-3 rounded-xl bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500" />
-          <input type="date" id="date" class="p-3 rounded-xl bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
-          <button id="add-data-btn" class="p-3 rounded-xl bg-purple-600 hover:bg-purple-700 transition-colors duration-200 shadow-md text-white font-bold">
-            데이터 추가
-          </button>
-        </div>
-      </div>
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
 
-      <!-- Chart -->
-      <div class="bg-gray-800 p-6 rounded-2xl shadow-lg border-2 border-green-500">
-        <div class="relative h-96">
-          <canvas id="bmi-chart"></canvas>
-        </div>
-      </div>
-      
-    </main>
+const Dashboard = () => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [userHealthData, setUserHealthData] = useState([]);
+  const [familyHealthData, setFamilyHealthData] = useState({});
 
-    <!-- Data Table -->
-    <div class="mt-8 w-full max-w-4xl mx-auto bg-gray-800 p-6 rounded-2xl shadow-lg border-2 border-blue-500">
-      <h2 class="text-2xl font-semibold mb-4">BMI 데이터 목록</h2>
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-700 rounded-xl overflow-hidden">
-          <thead class="bg-gray-700">
-            <tr>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">구성원</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">날짜</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">키 (cm)</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">몸무게 (kg)</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">BMI</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider"></th>
-            </tr>
-          </thead>
-          <tbody id="data-table-body" class="bg-gray-800 divide-y divide-gray-700">
-            <!-- Data will be rendered here -->
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    document.addEventListener('DOMContentLoaded', async () => {
-      const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-      const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-      const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-      const { initializeApp } = firebase.app;
-      const { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } = firebase.auth;
-      const { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, query } = firebase.firestore;
-      
-      const app = initializeApp(firebaseConfig);
-      const db = getFirestore(app);
-      const auth = getAuth(app);
-      
-      let chartInstance = null;
-      let currentUserId = null;
-
-      // DOM elements
-      const memberInput = document.getElementById('member-name');
-      const heightInput = document.getElementById('height');
-      const weightInput = document.getElementById('weight');
-      const dateInput = document.getElementById('date');
-      const addDataBtn = document.getElementById('add-data-btn');
-      const tableBody = document.getElementById('data-table-body');
-      const userIdDisplay = document.getElementById('user-id-display');
-      const canvas = document.getElementById('bmi-chart');
-
-      // Utility functions
-      const getBmi = (height, weight) => {
-        return (weight / Math.pow(height / 100, 2)).toFixed(2);
-      };
-
-      const getRandomColor = () => {
-        const r = Math.floor(Math.random() * 255);
-        const g = Math.floor(Math.random() * 255);
-        const b = Math.floor(Math.random() * 255);
-        return `rgb(${r}, ${g}, ${b})`;
-      };
-
-      // Chart drawing function
-      const drawChart = (data) => {
-        if (chartInstance) {
-          chartInstance.destroy();
-        }
-
-        const members = [...new Set(data.map(d => d.member))];
-        const datasets = members.map(member => {
-          const memberData = data.filter(d => d.member === member);
-          return {
-            label: member,
-            data: memberData.map(d => getBmi(d.height, d.weight)),
-            borderColor: getRandomColor(),
-            backgroundColor: 'rgba(255, 255, 255, 0.5)',
-            fill: false,
-          };
+  // Firestore에서 사용자 데이터와 가족 데이터 불러오기
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUserId(user.uid);
+        // 사용자 데이터 로딩
+        const userDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'health', 'profile');
+        const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setUserHealthData(docSnap.data().history || []);
+          }
+        }, (err) => {
+          console.error("사용자 데이터 로딩 오류: ", err);
+          setError("사용자 데이터를 불러오는 데 오류가 발생했습니다.");
         });
-        
-        const labels = [...new Set(data.map(d => d.date.toDate().toLocaleDateString('ko-KR')))];
 
-        chartInstance = new Chart(canvas, {
+        // 가족 데이터 로딩
+        const familyQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'health'));
+        const unsubscribeFamily = onSnapshot(familyQuery, (querySnapshot) => {
+          const data = {};
+          querySnapshot.forEach((docSnap) => {
+            const docData = docSnap.data();
+            data[docData.name] = docData.history || [];
+          });
+          setFamilyHealthData(data);
+          setLoading(false);
+        }, (err) => {
+          console.error("가족 데이터 로딩 오류: ", err);
+          setError("가족 데이터를 불러오는 데 오류가 발생했습니다.");
+          setLoading(false);
+        });
+
+        return () => {
+          unsubscribeUser();
+          unsubscribeFamily();
+        };
+
+      } else {
+        // 익명 로그인 시도
+        try {
+          await signInAnonymously(auth);
+        } catch (err) {
+          console.error("익명 로그인 오류: ", err);
+          setError("익명 로그인을 완료할 수 없습니다.");
+          setLoading(false);
+        }
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-white bg-gray-900">
+        <div className="text-center">
+          <svg className="w-10 h-10 mx-auto animate-spin" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="mt-4 text-sm font-medium">데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-red-400 bg-gray-900">
+        <p className="text-center">{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 antialiased text-white bg-gray-900 min-h-screen">
+      <header className="mb-8 text-center">
+        <h1 className="mb-2 text-3xl font-bold">가족 건강 대시보드</h1>
+        <p className="text-sm font-light text-gray-400">
+          <span className="font-semibold text-white">현재 사용자:</span> {userId || 'N/A'}
+        </p>
+      </header>
+
+      <section className="p-6 mb-8 bg-gray-800 rounded-lg shadow-lg">
+        <h2 className="mb-4 text-2xl font-semibold">내 BMI 추이</h2>
+        {userHealthData.length > 0 ? (
+          <ChartComponent data={userHealthData} title="내 BMI 추이" />
+        ) : (
+          <p className="text-gray-400">아직 BMI 데이터가 없습니다. 새로운 데이터를 추가해주세요.</p>
+        )}
+      </section>
+
+      <section className="p-6 bg-gray-800 rounded-lg shadow-lg">
+        <h2 className="mb-4 text-2xl font-semibold">가족 BMI 추이</h2>
+        {Object.keys(familyHealthData).length > 0 ? (
+          <MultiChartComponent data={familyHealthData} />
+        ) : (
+          <p className="text-gray-400">가족의 BMI 데이터가 아직 없습니다. 다른 사용자가 데이터를 공유할 때까지 기다려주세요.</p>
+        )}
+      </section>
+    </div>
+  );
+};
+
+const ChartComponent = ({ data, title }) => {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+
+  useEffect(() => {
+    if (chartRef.current) {
+      chartRef.current.destroy();
+    }
+
+    const labels = data.map(d => new Date(d.date).toLocaleDateString());
+    const values = data.map(d => d.bmi);
+
+    const ctx = canvasRef.current.getContext('2d');
+    chartRef.current = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'BMI',
+          data: values,
+          borderColor: 'rgba(59, 130, 246, 1)',
+          borderWidth: 2,
           type: 'line',
+          fill: false,
+          tension: 0.1,
+          datalabels: { display: true }
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: 'white' } },
+          title: {
+            display: true,
+            text: title,
+            color: 'white',
+            font: { size: 18, family: 'Noto Sans KR' }
+          },
+          datalabels: {
+            color: 'white',
+            anchor: 'end',
+            align: 'top',
+            formatter: (value) => value.toFixed(1)
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: 'white' },
+            grid: { color: 'rgba(255, 255, 255, 0.2)' }
+          },
+          y: {
+            ticks: { color: 'white' },
+            grid: { color: 'rgba(255, 255, 255, 0.2)' },
+            min: 15,
+            max: 35
+          }
+        }
+      },
+      plugins: [ChartDataLabels]
+    });
+
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+      }
+    };
+  }, [data, title]);
+
+  return <canvas ref={canvasRef} className="h-64" />;
+};
+
+
+const MultiChartComponent = ({ data }) => {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+
+  useEffect(() => {
+    if (chartRef.current) {
+      chartRef.current.destroy();
+    }
+
+    const labels = [...new Set(Object.values(data).flatMap(d => d.map(item => new Date(item.date).toLocaleDateString())))].sort();
+    const datasets = Object.keys(data).map((name) => {
+      const color = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+      return {
+        label: name,
+        data: labels.map(label => {
+          const record = data[name].find(d => new Date(d.date).toLocaleDateString() === label);
+          return record ? record.bmi : null;
+        }),
+        borderColor: color,
+        borderWidth: 2,
+        tension: 0.1,
+        fill: false,
+        spanGaps: true,
+        datalabels: {
+          display: false
+        }
+      };
+    });
+
+    const ctx = canvasRef.current.getContext('2d');
+    chartRef.current = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: 'white' } },
+          title: {
+            display: true,
+            text: '가족 BMI 추이',
+            color: 'white',
+            font: { size: 18, family: 'Noto Sans KR' }
+          },
+          datalabels: {
+            color: 'white',
+            anchor: 'end',
+            align: 'top',
+            formatter: (value) => value !== null ? value.toFixed(1) : ''
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: 'white' },
+            grid: { color: 'rgba(255, 255, 255, 0.2)' }
+          },
+          y: {
+            ticks: { color: 'white' },
+            grid: { color: 'rgba(255, 255, 255, 0.2)' },
+            min: 15, max: 35
+          }
+        }
+      },
+      plugins: [ChartDataLabels]
+    });
+
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+      }
+    };
+  }, [data]);
+
+  return <canvas ref={canvasRef} className="h-64" />;
+};
+
+export default function App() {
+  return <Dashboard />;
+}emibold text-white/90">
+              <i className="fas fa-brain mr-2"></i>AI 건강 인사이트
+            </h3>
+            <button onClick={generateInsights} disabled={isLoading} className="text-sm px-3 py-1 rounded-full bg-white/20 hover:bg-white/30 transition-all disabled:opacity-50">
+              {isLoading ? '생성 중...' : '생성하기'}
+            </button>
+          </div>
+          <p className="text-white/70 text-sm leading-relaxed whitespace-pre-wrap">
+            {insights || '버튼을 눌러 건강 인사이트를 받아보세요!'}
+          </p>
+        </div>
+      );
+    };
+
+    // 가족 구성원 카드 컴포넌트 (FamilyMember)
+    const FamilyMember = ({ memberData, onUpdate, baseData, setToast, isLoading }) => {
+      const [showDetails, setShowDetails] = useState(false);
+      const [localData, setLocalData] = useState(memberData);
+      const [isSaving, setIsSaving] = useState(false);
+      
+      useEffect(() => {
+        setLocalData(memberData);
+      }, [memberData]);
+
+      const handleChange = (key, value) => {
+        setLocalData(prev => ({ ...prev, [key]: value }));
+      };
+      
+      const handleSave = async () => {
+        if (!db) {
+          console.error("Firestore is not initialized.");
+          setToast({ message: "데이터베이스 초기화에 실패했습니다.", type: 'error' });
+          return;
+        }
+        setIsSaving(true);
+        try {
+          const docRef = firebase.doc(db, "artifacts", appId, "public", "data", "family", baseData.id);
+          await firebase.setDoc(docRef, localData, { merge: true });
+          onUpdate(baseData.id, localData);
+          setToast({ message: `${baseData.name}님의 데이터가 성공적으로 저장되었습니다.`, type: 'success' });
+        } catch (error) {
+          console.error("Error saving document: ", error);
+          setToast({ message: "데이터 저장에 실패했습니다.", type: 'error' });
+        } finally {
+          setIsSaving(false);
+        }
+      };
+      
+      const heightM = baseData.height && baseData.height > 0 ? baseData.height / 100 : null;
+      const currentBmi = heightM && localData.weight && localData.weight > 0 ? localData.weight / (heightM * heightM) : 0;
+      const targetBmi = heightM && localData.targetWeight ? localData.targetWeight / (heightM * heightM) : 0;
+      const bmiDifference = targetBmi ? targetBmi - currentBmi : null;
+
+      const getBmiCategory = (bmi) => {
+        if (!bmi || bmi <= 0) return { text: '미입력', icon: '❔', color: '#999' };
+        if (bmi < 18.5) return { text: '저체중', icon: '📉', color: '#4facfe' };
+        if (bmi < 25) return { text: '정상', icon: '✅', color: '#43e97b' };
+        if (bmi < 30) return { text: '과체중', icon: '⚠️', color: '#feca57' };
+        return { text: '비만', icon: '🔴', color: '#ff6b6b' };
+      };
+      const bmiCategory = getBmiCategory(currentBmi);
+
+      const initialWeight = baseData.weight;
+      const targetWeight = localData.targetWeight;
+      const currentWeight = localData.weight;
+      let progress = 0;
+      if (targetWeight && initialWeight && initialWeight !== targetWeight) {
+        progress = ((currentWeight - initialWeight) / (targetWeight - initialWeight)) * 100;
+      }
+      progress = Math.min(100, Math.max(0, progress));
+      
+      const Skeleton = () => (
+        <div className="glassmorphism rounded-3xl p-6 fade-in">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-4">
+              <div className="text-6xl skeleton-box w-16 h-16 rounded-full"></div>
+              <div>
+                <div className="h-6 w-24 skeleton-box mb-2 rounded"></div>
+                <div className="h-4 w-48 skeleton-box rounded"></div>
+              </div>
+            </div>
+          </div>
+          <div className="h-64 skeleton-box rounded-xl"></div>
+          <div className="mt-4 h-12 w-full skeleton-box rounded-xl"></div>
+          <div className="mt-4 h-12 w-full skeleton-box rounded-xl"></div>
+        </div>
+      );
+
+      if (isLoading) {
+        return <Skeleton />;
+      }
+      
+      return (
+        <div className="glassmorphism rounded-3xl p-6 card-hover fade-in">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-4">
+              <div className="text-6xl hover:scale-110 transition-transform cursor-pointer">
+                {baseData.emoji}
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-1">{baseData.name}</h2>
+                <div className="flex flex-wrap gap-2 text-xs mt-2">
+                  <span className="bg-white/10 px-2 py-1 rounded-full text-white/80">
+                    <i className="fas fa-birthday-cake mr-1"></i>{baseData.age}세
+                  </span>
+                  <span className="bg-white/10 px-2 py-1 rounded-full text-white/80">
+                    <i className="fas fa-ruler-vertical mr-1"></i>{baseData.height}cm
+                  </span>
+                  <span className="bg-white/10 px-2 py-1 rounded-full text-white/80">
+                    <i className="fas fa-briefcase mr-1"></i>{baseData.profession}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* BMI Status */}
+          <div className="grid grid-cols-2 gap-6 mb-6">
+            <div className="text-center">
+              <CircularProgress 
+                value={currentBmi} 
+                maxValue={35} 
+                color={bmiCategory.color}
+              />
+              <p className="text-white/80 text-sm mt-3 font-medium">현재 BMI</p>
+            </div>
+            <div className="space-y-3">
+              <div className="bg-white/10 rounded-xl p-4 text-center" style={{backgroundColor: bmiCategory.color + '40'}}>
+                <div className="text-white font-bold text-lg mb-1">
+                  {bmiCategory.icon} {bmiCategory.text}
+                </div>
+                <div className="text-white/90 text-sm">BMI {currentBmi.toFixed(1)}</div>
+              </div>
+              {targetBmi > 0 && (
+                <div className="bg-white/10 rounded-xl p-3 text-center">
+                  <div className="text-white/80 text-sm">목표: {targetBmi.toFixed(1)}</div>
+                  <div className="text-white/60 text-xs">
+                    {bmiDifference > 0 ? '↑' : '↓'} {Math.abs(bmiDifference).toFixed(1)}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <button 
+            onClick={() => setShowDetails(!showDetails)}
+            className="w-full py-3 bg-white/20 text-white font-semibold rounded-2xl mb-4 hover:bg-white/30 transition-all transform hover:scale-105"
+          >
+            {showDetails ? (
+              <span><i className="fas fa-chevron-up mr-2"></i>접기</span>
+            ) : (
+              <span><i className="fas fa-chevron-down mr-2"></i>상세 보기</span>
+            )}
+          </button>
+
+          {/* Details */}
+          {showDetails && (
+            <div className="space-y-6 slide-up">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
+                    <i className="fas fa-weight-scale mr-2"></i>초기 체중 (kg)
+                  </label>
+                  <p className="w-full p-3 bg-white/10 rounded-xl text-white/80 backdrop-blur-sm">
+                    {initialWeight} kg
+                  </p>
+                </div>
+                <div>
+                  <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
+                    <i className="fas fa-bullseye mr-2"></i>목표 체중 (kg)
+                  </label>
+                  <input 
+                    type="number" 
+                    value={localData.targetWeight || ''} 
+                    onChange={e => handleChange('targetWeight', e.target.value)} 
+                    step="0.1" 
+                    className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+                    placeholder="목표 체중"
+                  />
+                </div>
+                <div>
+                  <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
+                    <i className="fas fa-weight-hanging mr-2"></i>현재 체중 (kg)
+                  </label>
+                  <input 
+                    type="number" 
+                    value={localData.weight || ''} 
+                    onChange={e => handleChange('weight', e.target.value)} 
+                    step="0.1" 
+                    className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+                    placeholder="체중 입력"
+                  />
+                </div>
+                <div>
+                  <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
+                    <i className="fas fa-percentage mr-2"></i>목표 진행률 (%)
+                  </label>
+                  <p className="w-full p-3 bg-white/10 rounded-xl text-white backdrop-blur-sm">
+                    {progress.toFixed(1)} %
+                  </p>
+                </div>
+                <div className="md:col-span-2">
+                    <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
+                      <i className="fas fa-dumbbell mr-2"></i>체형
+                    </label>
+                    <select 
+                      value={localData.bodyType || '보통'} 
+                      onChange={e => handleChange('bodyType', e.target.value)} 
+                      className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+                    >
+                      <option value="보통">보통</option>
+                      <option value="근육형">근육형</option>
+                      <option value="마른 비만">마른 비만</option>
+                      <option value="마른 체형">마른 체형</option>
+                      <option value="과체중">과체중</option>
+                    </select>
+                </div>
+              </div>
+              {/* AI Insights */}
+              <HealthInsights memberData={localData} baseData={baseData} setToast={setToast} />
+              {/* Save Button */}
+              <button onClick={handleSave} disabled={isSaving} className="w-full py-4 bg-gradient-to-r from-green-400 to-blue-500 text-white font-bold rounded-2xl neon-glow hover:from-green-500 hover:to-blue-600 disabled:opacity-50 transition-all transform hover:scale-105" >
+                {isSaving ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                    <span>저장 중...</span>
+                  </div>
+                ) : (
+                  <span>
+                    <i className="fas fa-save mr-2"></i> 데이터 저장하기
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // 메인 App 컴포넌트
+    const App = () => {
+      const [data, setData] = useState(initialFamilyData);
+      const [toast, setToast] = useState(null);
+      const [isAuthReady, setIsAuthReady] = useState(false);
+      const [userId, setUserId] = useState(null);
+      const [isLoading, setIsLoading] = useState(true);
+
+      useEffect(() => {
+        if (!auth) return;
+        const unsubscribeAuth = firebase.onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            setUserId(user.uid);
+          } else {
+            if (initialAuthToken) {
+              await firebase.signInWithCustomToken(auth, initialAuthToken).catch(error => {
+                console.error("Custom token sign-in failed:", error);
+                firebase.signInAnonymously(auth);
+              });
+            } else {
+              await firebase.signInAnonymously(auth);
+            }
+          }
+          setIsAuthReady(true);
+        });
+
+        return () => unsubscribeAuth();
+      }, []);
+
+      useEffect(() => {
+        if (!isAuthReady || !db) return;
+        setIsLoading(true);
+        const familyColRef = firebase.collection(db, "artifacts", appId, "public", "data", "family");
+        const unsubscribe = firebase.onSnapshot(familyColRef, (snapshot) => {
+          const firebaseData = {};
+          snapshot.forEach(doc => {
+            firebaseData[doc.id] = doc.data();
+          });
+          
+          setData(prevData => {
+            const updatedData = { ...prevData };
+            Object.keys(firebaseData).forEach(id => {
+              if (updatedData[id]) {
+                updatedData[id] = { ...updatedData[id], ...firebaseData[id] };
+              }
+            });
+            return updatedData;
+          });
+          setIsLoading(false);
+        }, (error) => {
+          console.error("Error loading data:", error);
+          setToast({ message: "데이터 로딩에 실패했습니다.", type: 'error' });
+          setIsLoading(false);
+        });
+
+        return () => unsubscribe();
+      }, [isAuthReady]);
+
+      const updateData = (id, newData) => {
+        setData(prev => ({ ...prev, [id]: { ...prev[id], ...newData } }));
+      };
+
+      useEffect(() => {
+        if (toast) {
+          const timer = setTimeout(() => setToast(null), 3000);
+          return () => clearTimeout(timer);
+        }
+      }, [toast]);
+      
+      const familyMembers = Object.values(data);
+
+      return (
+        <div className="min-h-screen animated-bg">
+          {toast && <ToastMessage message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+          <div className="p-4 md:p-8 lg:p-12 text-white">
+            <header className="text-center py-8">
+              <h1 className="text-4xl md:text-5xl font-extrabold gradient-text leading-tight drop-shadow-md">
+                가족 건강 대시보드
+              </h1>
+              <p className="text-white/70 mt-4 max-w-2xl mx-auto">
+                우리 가족의 건강 데이터를 한눈에 확인하고 관리하세요.
+              </p>
+              <div className="mt-4 text-xs text-white/50">
+                <span>공유 ID: </span>
+                <span className="font-mono">{appId}</span>
+              </div>
+            </header>
+
+            <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {familyMembers.map(member => (
+                <FamilyMember 
+                  key={member.id} 
+                  memberData={member} 
+                  onUpdate={updateData} 
+                  baseData={initialFamilyData[member.id]}
+                  setToast={setToast}
+                  isLoading={isLoading}
+                />
+              ))}
+            </main>
+            
+            <div className="text-center mt-12 text-white/50 text-sm">
+              <p>&copy; 2024 가족 건강 관리</p>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>]);
+
+      if (!hasAccess) {
+        return <PasswordGate onAccess={setHasAccess} />;
+      }
+      
+      const familyMembers = Object.values(data);
+
+      return (
+        <div className="min-h-screen animated-bg">
+          {toast && <ToastMessage message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+          <div className="p-4 md:p-8 lg:p-12 text-white">
+            <header className="text-center py-8">
+              <h1 className="text-4xl md:text-5xl font-extrabold gradient-text leading-tight drop-shadow-md">
+                가족 건강 대시보드
+              </h1>
+              <p className="text-white/70 mt-4 max-w-2xl mx-auto">
+                우리 가족의 건강 데이터를 한눈에 확인하고 관리하세요.
+              </p>
+              <div className="mt-4 text-xs text-white/50">
+                <span>공유 ID: </span>
+                <span className="font-mono">{appId}</span>
+              </div>
+            </header>
+
+            <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {familyMembers.map(member => (
+                <FamilyMember 
+                  key={member.id} 
+                  memberData={member} 
+                  onUpdate={updateData} 
+                  baseData={initialFamilyData[member.id]}
+                  setToast={setToast}
+                  isLoading={isLoading}
+                />
+              ))}
+            </main>
+            
+            <div className="text-center mt-12 text-white/50 text-sm">
+              <p>&copy; 2024 가족 건강 관리</p>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>        let progress = ((currentWeight - initialWeight) / (targetWeight - initialWeight)) * 100;
+          progress = Math.min(100, Math.max(0, progress));
+          return progress;
+        });
+
+        chartRef.current = new Chart(ctx, {
+          type: 'bar',
           data: {
             labels: labels,
-            datasets: datasets,
+            datasets: [{
+              label: '현재 BMI',
+              data: currentBmis,
+              backgroundColor: [
+                'rgba(75, 192, 192, 0.6)', 
+                'rgba(255, 159, 64, 0.6)', 
+                'rgba(54, 162, 235, 0.6)', 
+                'rgba(153, 102, 255, 0.6)'
+              ],
+              borderColor: [
+                'rgba(75, 192, 192, 1)', 
+                'rgba(255, 159, 64, 1)', 
+                'rgba(54, 162, 235, 1)', 
+                'rgba(153, 102, 255, 1)'
+              ],
+              borderWidth: 1,
+              datalabels: {
+                color: 'white',
+                anchor: 'end',
+                align: 'top',
+                offset: 5,
+                formatter: (value) => value > 0 ? value.toFixed(1) : ''
+              }
+            },
+            {
+              label: '목표 BMI',
+              data: targetBmis,
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              borderColor: 'rgba(255, 255, 255, 0.8)',
+              borderWidth: 2,
+              type: 'line',
+              fill: false,
+              datalabels: {
+                display: false
+              }
+            },
+            {
+              label: '목표 달성률 (%)',
+              data: progressPercentages,
+              type: 'line',
+              fill: false,
+              borderColor: '#f5576c',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              pointBackgroundColor: '#f5576c',
+              datalabels: {
+                color: '#f5576c',
+                anchor: 'start',
+                align: 'end',
+                offset: 10,
+                formatter: (value) => {
+                  return value !== null ? `${value.toFixed(0)}%` : '';
+                }
+              }
+            }]
           },
           options: {
             responsive: true,
@@ -156,10 +759,10 @@
               },
               title: {
                 display: true,
-                text: '가족 BMI 추이',
+                text: '가족 BMI 및 목표 달성률',
                 color: 'white',
                 font: { size: 18, family: 'Noto Sans KR' }
-              },
+              }
             },
             scales: {
               x: {
@@ -172,562 +775,26 @@
                 min: 15, max: 35
               }
             }
-          }
-        });
-      };
-
-      // Render table function
-      const renderTable = (data) => {
-        tableBody.innerHTML = '';
-        if (data.length === 0) {
-          tableBody.innerHTML = `
-            <tr>
-              <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-400">
-                데이터가 없습니다.
-              </td>
-            </tr>
-          `;
-          return;
-        }
-        
-        data.forEach(item => {
-          const row = document.createElement('tr');
-          row.classList.add('hover:bg-gray-700', 'transition-colors', 'duration-200');
-          row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-200">${item.member}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${item.date.toDate().toLocaleDateString('ko-KR')}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${item.height}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${item.weight}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${getBmi(item.height, item.weight)}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-              <button class="text-red-500 hover:text-red-700 transition-colors duration-200 delete-btn" data-id="${item.id}">
-                <i class="fa-solid fa-trash-can"></i>
-              </button>
-            </td>
-          `;
-          tableBody.appendChild(row);
+          },
+          plugins: [ChartDataLabels]
         });
 
-        document.querySelectorAll('.delete-btn').forEach(button => {
-          button.addEventListener('click', async (e) => {
-            const id = e.currentTarget.dataset.id;
-            try {
-              await deleteDoc(doc(db, `/artifacts/${appId}/public/data/bmi_data`, id));
-            } catch (e) {
-              console.error("Error deleting document: ", e);
-            }
-          });
-        });
-      };
-
-      // Main logic
-      onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          currentUserId = user.uid;
-          userIdDisplay.textContent = `사용자 ID: ${currentUserId}`;
-          const collectionPath = `/artifacts/${appId}/public/data/bmi_data`;
-          
-          onSnapshot(query(collection(db, collectionPath)), (snapshot) => {
-            const data = snapshot.docs
-              .map(doc => ({ id: doc.id, ...doc.data() }))
-              .sort((a, b) => a.date.toDate() - b.date.toDate());
-            drawChart(data);
-            renderTable(data);
-          }, (error) => {
-            console.error("Error fetching data:", error);
-          });
-
-        } else {
-          try {
-            if (initialAuthToken) {
-              await signInWithCustomToken(auth, initialAuthToken);
-            } else {
-              await signInAnonymously(auth);
-            }
-          } catch (error) {
-            console.error('Firebase authentication failed:', error);
-          }
-        }
-      });
-
-      addDataBtn.addEventListener('click', async () => {
-        const member = memberInput.value;
-        const height = parseFloat(heightInput.value);
-        const weight = parseFloat(weightInput.value);
-        const date = dateInput.value;
-
-        if (member && !isNaN(height) && !isNaN(weight) && date && currentUserId) {
-          try {
-            await addDoc(collection(db, `/artifacts/${appId}/public/data/bmi_data`), {
-              member: member,
-              height: height,
-              weight: weight,
-              date: new Date(date),
-              userId: currentUserId,
-            });
-            memberInput.value = '';
-            heightInput.value = '';
-            weightInput.value = '';
-            dateInput.value = '';
-          } catch (e) {
-            console.error("Error adding document: ", e);
-          }
-        }
-      });
-    });
-  </script>
-
-</body>
-</html> = baseData.height && baseData.height > 0 ? baseData.height / 100 : null;
-    const currentBmi =
-      heightM && localData.weight && localData.weight > 0
-        ? localData.weight / (heightM * heightM)
-        : 0;
-    const targetBmi =
-      heightM && localData.targetWeight
-        ? localData.targetWeight / (heightM * heightM)
-        : 0;
-    const bmiDifference = targetBmi ? targetBmi - currentBmi : null;
-
-    // BMI 상태 카테고리
-    const getBmiCategory = (bmi) => {
-      if (!bmi || bmi <= 0) return { text: '미입력', icon: '❔', color: '#999' };
-      if (bmi < 18.5) return { text: '저체중', icon: '📉', color: '#4facfe' };
-      if (bmi < 25) return { text: '정상', icon: '✅', color: '#43e97b' };
-      if (bmi < 30) return { text: '과체중', icon: '⚠️', color: '#feca57' };
-      return { text: '비만', icon: '🔴', color: '#ff6b6b' };
-    };
-    const bmiCategory = getBmiCategory(currentBmi);
-
-    // 진행률 계산 (0~100 사이로 제한)
-    const initialWeight = baseData.weight;
-    const targetWeight = localData.targetWeight;
-    const currentWeight = localData.weight;
-    let progress = 0;
-    if (targetWeight && initialWeight && initialWeight !== targetWeight) {
-      progress = ((currentWeight - initialWeight) / (targetWeight - initialWeight)) * 100;
-    }
-    progress = Math.min(100, Math.max(0, progress));
-
-    return (
-      <div className="glassmorphism rounded-3xl p-6 card-hover fade-in">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-4">
-            <div className="text-6xl hover:scale-110 transition-transform cursor-pointer">
-              {baseData.emoji}
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-1">{baseData.name}</h2>
-              <div className="flex flex-wrap gap-2 text-xs mt-2">
-                <span className="bg-white/10 px-2 py-1 rounded-full text-white/80">
-                  <i className="fas fa-birthday-cake mr-1"></i>{baseData.age}세
-                </span>
-                <span className="bg-white/10 px-2 py-1 rounded-full text-white/80">
-                  <i className="fas fa-ruler-vertical mr-1"></i>{baseData.height}cm
-                </span>
-                <span className="bg-white/10 px-2 py-1 rounded-full text-white/80">
-                  <i className="fas fa-briefcase mr-1"></i>{baseData.profession}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* BMI Status */}
-        <div className="grid grid-cols-2 gap-6 mb-6">
-          <div className="text-center">
-            <CircularProgress 
-              value={currentBmi} 
-              maxValue={35} 
-              color={bmiCategory.color}
-            />
-            <p className="text-white/80 text-sm mt-3 font-medium">현재 BMI</p>
-          </div>
-          <div className="space-y-3">
-            <div className="bg-white/10 rounded-xl p-4 text-center" style={{backgroundColor: bmiCategory.color + '40'}}>
-              <div className="text-white font-bold text-lg mb-1">
-                {bmiCategory.icon} {bmiCategory.text}
-              </div>
-              <div className="text-white/90 text-sm">BMI {currentBmi.toFixed(1)}</div>
-            </div>
-            {targetBmi > 0 && (
-              <div className="bg-white/10 rounded-xl p-3 text-center">
-                <div className="text-white/80 text-sm">목표: {targetBmi.toFixed(1)}</div>
-                <div className="text-white/60 text-xs">
-                  {bmiDifference > 0 ? '↑' : '↓'} {Math.abs(bmiDifference).toFixed(1)}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <button 
-          onClick={() => setShowDetails(!showDetails)}
-          className="w-full py-3 bg-white/20 text-white font-semibold rounded-2xl mb-4 hover:bg-white/30 transition-all transform hover:scale-105"
-        >
-          {showDetails ? (
-            <span><i className="fas fa-chevron-up mr-2"></i>접기</span>
-          ) : (
-            <span><i className="fas fa-chevron-down mr-2"></i>상세 보기</span>
-          )}
-        </button>
-
-        {/* Details */}
-        {showDetails && (
-          <div className="space-y-6 slide-up">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
-                  <i className="fas fa-weight-scale mr-2"></i>초기 체중 (kg)
-                </label>
-                <p className="w-full p-3 bg-white/10 rounded-xl text-white/80 backdrop-blur-sm">
-                  {initialWeight} kg
-                </p>
-              </div>
-              <div>
-                <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
-                  <i className="fas fa-bullseye mr-2"></i>목표 체중 (kg)
-                </label>
-                <input 
-                  type="number" 
-                  value={localData.targetWeight || ''} 
-                  onChange={e => handleChange('targetWeight', e.target.value)} 
-                  step="0.1" 
-                  className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
-                  placeholder="목표 체중"
-                />
-              </div>
-              <div>
-                <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
-                  <i className="fas fa-weight-hanging mr-2"></i>현재 체중 (kg)
-                </label>
-                <input 
-                  type="number" 
-                  value={localData.weight || ''} 
-                  onChange={e => handleChange('weight', e.target.value)} 
-                  step="0.1" 
-                  className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
-                  placeholder="체중 입력"
-                />
-              </div>
-              <div>
-                <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
-                  <i className="fas fa-percentage mr-2"></i>목표 진행률 (%)
-                </label>
-                <p className="w-full p-3 bg-white/10 rounded-xl text-white backdrop-blur-sm">
-                  {progress.toFixed(1)} %
-                </p>
-              </div>
-              <div className="md:col-span-2">
-                  <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
-                    <i className="fas fa-dumbbell mr-2"></i>체형
-                  </label>
-                  <select 
-                    value={localData.bodyType || '보통'} 
-                    onChange={e => handleChange('bodyType', e.target.value)} 
-                    className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
-                  >
-                    <option value="보통">보통</option>
-                    <option value="근육형">근육형</option>
-                    <option value="마른 비만">마른 비만</option>
-                    <option value="마른 체형">마른 체형</option>
-                    <option value="과체중">과체중</option>
-                  </select>
-              </div>
-            </div>
-
-            {/* AI Insights */}
-            <HealthInsights memberData={localData} baseData={baseData} />
-
-            {/* Save Button */}
-            <button 
-              onClick={handleSave} 
-              disabled={isSaving}
-              className="w-full py-4 bg-gradient-to-r from-green-400 to-blue-500 text-white font-bold rounded-2xl neon-glow hover:from-green-500 hover:to-blue-600 disabled:opacity-50 transition-all transform hover:scale-105"
-            >
-              {isSaving ? (
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                  <span>저장 중...</span>
-                </div>
-              ) : (
-                <span>
-                  <i className="fas fa-save mr-2"></i>
-                  데이터 저장하기
-                </span>
-              )}
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // Main App Component
-  const App = () => {
-    const [hasAccess, setHasAccess] = useState(false);
-    const [data, setData] = useState(initialFamilyData);
-    const [toast, setToast] = useState(null);
-
-    // Firebase에서 데이터 로드
-    useEffect(() => {
-      const loadData = async () => {
-        try {
-          const familyRef = db.collection("family");
-          const snapshot = await familyRef.get();
-          
-          if (!snapshot.empty) {
-            const firebaseData = {};
-            snapshot.forEach(doc => {
-              firebaseData[doc.id] = { ...doc.data(), id: doc.id };
-            });
-            
-            setData(prevData => {
-              const updatedData = { ...prevData };
-              Object.keys(firebaseData).forEach(id => {
-                if (updatedData[id]) {
-                  updatedData[id] = { ...updatedData[id], ...firebaseData[id] };
-                }
-              });
-              return updatedData;
-            });
-          }
-        } catch (error) {
-          console.error("Error loading data:", error);
-        }
-      };
-
-      if (hasAccess) {
-        loadData();
-      }
-    }, [hasAccess]);
-
-    // 데이터 업데이트 함수
-    const updateData = (id, newData) => {
-      setData(prev => ({
-        ...prev,
-        [id]: { ...prev[id], ...newData }
-      }));
-    };
-
-    useEffect(() => {
-      if (toast) {
-        const timer = setTimeout(() => setToast(null), 3000);
-        return () => clearTimeout(timer);
-      }
-    }, [toast]);
-    
-    if (!hasAccess) {
-      return <PasswordGate onAccess={setHasAccess} />;
-    }
-    
-    return (
-      <div className="min-h-screen animated-bg">
-        {toast && <ToastMessage message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-        <div className="p-4 md:p-8 lg:p-12 text-white">
-          <header className="text-center py-8">
-            <h1 className="text-5xl md:text-6xl font-extrabold mb-2 gradient-text">
-              Ultimate Health Dashboard
-            </h1>
-            <p className="text-lg md:text-xl font-medium text-white/80">
-              <i className="fas fa-heartbeat mr-2 pulse"></i> 우리 가족 건강 관리
-            </p>
-          </header>
-          <div className="fade-in">
-            <div className="grid gap-8 mb-12 lg:grid-cols-2 xl:grid-cols-4">
-              {Object.keys(data).map(id => (
-                <FamilyMember
-                  key={id}
-                  memberData={data[id]}
-                  onUpdate={updateData}
-                  baseData={initialFamilyData[id]}
-                  setToast={setToast}
-                />
-              ))}
-            </div>
-            <div className="w-full h-[400px] glassmorphism p-4 rounded-3xl">
-              <AdvancedBMIChart familyHealthData={data} initialData={initialFamilyData} />
-            </div>
-          </div>
-          <footer className="text-center text-white/50 text-sm mt-12 py-4 border-t border-white/20">
-            © 2025. 수아동혁가족. All Rights Reserved.
-            <br />
-            이 앱은 파이어베이스 데이터베이스에 데이터를 저장합니다.
-          </footer>
-        </div>
-      </div>
-    );
-  };
-
-  // Chart.js Component
-  const AdvancedBMIChart = ({ familyHealthData, initialData }) => {
-    const canvasRef = useRef(null);
-    const chartRef = useRef(null);
-
-    useEffect(() => {
-        if (!familyHealthData || Object.keys(familyHealthData).length === 0) return;
-
-        const ctx = canvasRef.current.getContext('2d');
-        if (chartRef.current) {
-            chartRef.current.destroy();
-        }
-
-        const labels = Object.values(familyHealthData).map(membernitialFamilyData[id]}
-                  setToast={setToast}
-                />
-              ))}
-            </div>
-            <div className="w-full h-[400px] glassmorphism p-4 rounded-3xl">
-              <AdvancedBMIChart familyHealthData={data} initialData={initialFamilyData} />
-            </div>
-          </div>
-          <footer className="text-center text-white/50 text-sm mt-12 py-4 border-t border-white/20">
-            © 2025. 수아동혁가족. All Rights Reserved.
-            <br />
-            이 앱은 파이어베이스 데이터베이스에 데이터를 저장합니다.
-          </footer>
-        </div>
-      </div>
-    );
-  };
-
-  // Chart.js Component
-  const AdvancedBMIChart = ({ familyHealthData, initialData }) => {
-    const canvasRef = useRef(null);
-    const chartRef = useRef(null);
-
-    useEffect(() => {
-        if (!familyHealthData || Object.keys(familyHealthData).length === 0) return;
-
-        const ctx = canvasRef.current.getContext('2d');
-        if (chartRef.current) {
-            chartRef.current.destroy();
-        }
-
-        const labels = Object.values(familyHealthData).map(member => member.name);
-        const currentBmis = Object.values(familyHealthData).map(member => {
-            const heightM = initialData[member.id].height / 100;
-            return member.weight ? (member.weight / (heightM * heightM)) : 0;
-        });
-        const targetBmis = Object.values(initialData).map(member => member.recommendedBMI);
-        const progressPercentages = Object.values(familyHealthData).map(member => {
-            const initialWeight = initialData[member.id].weight;
-            const targetWeight = member.targetWeight;
-            const currentWeight = member.weight;
-            if (!targetWeight || initialWeight === targetWeight) {
-                return null;
-            }
-            let progress = ((currentWeight - initialWeight) / (targetWeight - initialWeight)) * 100;
-            progress = Math.min(100, Math.max(0, progress));
-            return progress;
-        });
-
-        chartRef.current = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: '현재 BMI',
-                    data: currentBmis,
-                    backgroundColor: [
-                        'rgba(75, 192, 192, 0.6)', 
-                        'rgba(255, 159, 64, 0.6)', 
-                        'rgba(54, 162, 235, 0.6)', 
-                        'rgba(153, 102, 255, 0.6)'
-                    ],
-                    borderColor: [
-                        'rgba(75, 192, 192, 1)', 
-                        'rgba(255, 159, 64, 1)', 
-                        'rgba(54, 162, 235, 1)', 
-                        'rgba(153, 102, 255, 1)'
-                    ],
-                    borderWidth: 1,
-                    datalabels: {
-                      color: 'white',
-                      anchor: 'end',
-                      align: 'top',
-                      offset: 5,
-                      formatter: (value) => value > 0 ? value.toFixed(1) : ''
-                    }
-                }, {
-                    label: '목표 BMI',
-                    data: targetBmis,
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                    borderColor: 'rgba(255, 255, 255, 0.8)',
-                    borderWidth: 2,
-                    type: 'line',
-                    fill: false,
-                    datalabels: {
-                        display: false
-                    }
-                }, {
-                    label: '목표 달성률 (%)',
-                    data: progressPercentages,
-                    type: 'line',
-                    fill: false,
-                    borderColor: '#f5576c',
-                    borderWidth: 2,
-                    borderDash: [5, 5],
-                    pointBackgroundColor: '#f5576c',
-                    datalabels: {
-                        color: '#f5576c',
-                        anchor: 'start',
-                        align: 'end',
-                        offset: 10,
-                        formatter: (value) => { return value !== null ? `${value.toFixed(0)}%` : ''; }
-                    }
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        labels: { color: 'white' }
-                    },
-                    title: {
-                        display: true,
-                        text: '가족 BMI 및 목표 달성률',
-                        color: 'white',
-                        font: { size: 18, family: 'Noto Sans KR' }
-                    }
-                },
-                scales: {
-                    x: {
-                        ticks: { color: 'white' },
-                        grid: { color: 'rgba(255, 255, 255, 0.2)' }
-                    },
-                    y: {
-                        ticks: { color: 'white' },
-                        grid: { color: 'rgba(255, 255, 255, 0.2)' },
-                        min: 15, max: 35
-                    }
-                }
-            },
-            plugins: [ChartDataLabels]
-        });
         return () => {
-            if (chartRef.current) {
-                chartRef.current.destroy();
-            }
+          if (chartRef.current) {
+            chartRef.current.destroy();
+          }
         };
-    }, [familyHealthData]);
+      }, [familyHealthData]);
 
-    return <canvas ref={canvasRef} />;
-  };
+      return <canvas ref={canvasRef} />;
+    };
 
-  const root = ReactDOM.createRoot(document.getElementById('root'));
-  root.render(<App />);
-</script>
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
 </body>
 </html>
-       } catch (error) {
-                console.error("Authentication error during login:", error);
-            }
-        };
-
-        if (auth && !auth.currentUser) {
+    if (auth && !auth.currentUser) {
             authLogin();
         }
 

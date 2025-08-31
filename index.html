@@ -10,35 +10,96 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase config and auth token are provided by the environment.
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // ===================================================================================
+        // Firebase 프로젝트 구성 정보가 적용되었습니다.
+        // ===================================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDVvT5a8vh8CICbT18cqF5dMqRkxalgJWk",
+            authDomain: "bmi-dashboard-project.firebaseapp.com",
+            projectId: "bmi-dashboard-project",
+            storageBucket: "bmi-dashboard-project.firebasestorage.app",
+            messagingSenderId: "124744707008",
+            appId: "1:124744707008:web:02757469b90412cc013625",
+            measurementId: "G-CZQNBEYYCW"
+        };
+        // ===================================================================================
 
         let db, auth;
         let userId = null;
         let familyHealthData = [];
         let myChart = null;
 
+        // 추가된 부분: 초기 샘플 데이터
+        const getInitialFamilyData = () => {
+            const today = new Date().toISOString().split('T')[0];
+            return {
+                '아빠': {
+                    name: '아빠', age: 45, gender: '남자', body_type: '표준', height: 175, target_weight: 72, initial_weight: 75,
+                    bmi_history: [{ date: today, bmi: calculateBMI(175, 75) }], weight_history: [{ date: today, weight: 75 }]
+                },
+                '엄마': {
+                    name: '엄마', age: 42, gender: '여자', body_type: '표준', height: 162, target_weight: 55, initial_weight: 58,
+                    bmi_history: [{ date: today, bmi: calculateBMI(162, 58) }], weight_history: [{ date: today, weight: 58 }]
+                },
+                '큰딸': {
+                    name: '큰딸', age: 16, gender: '여자', body_type: '마른 체형', height: 165, target_weight: 52, initial_weight: 50,
+                    bmi_history: [{ date: today, bmi: calculateBMI(165, 50) }], weight_history: [{ date: today, weight: 50 }]
+                },
+                '둘째아들': {
+                    name: '둘째아들', age: 12, gender: '남자', body_type: '표준', height: 150, target_weight: 45, initial_weight: 43,
+                    bmi_history: [{ date: today, bmi: calculateBMI(150, 43) }], weight_history: [{ date: today, weight: 43 }]
+                }
+            };
+        };
+
+
         window.onload = async () => {
-            if (Object.keys(firebaseConfig).length > 0) {
+            if (firebaseConfig && firebaseConfig.apiKey) {
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
-                try {
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        const docRef = doc(db, `users/${userId}/health_data/family_info`);
+                        
+                        onSnapshot(docRef, async (docSnap) => {
+                            if (!docSnap.exists() || Object.keys(docSnap.data()).length === 0) {
+                                console.log("초기 데이터가 없어 샘플 데이터를 생성합니다.");
+                                await setDoc(docRef, getInitialFamilyData());
+                                // onSnapshot이 데이터를 다시 로드하므로 여기서 UI를 직접 렌더링할 필요 없음
+                            } else {
+                                familyHealthData = Object.values(docSnap.data());
+                                renderFamilyList(familyHealthData);
+                                renderChart(familyHealthData);
+                                renderAchievementRate(calculateAchievementRate(familyHealthData));
+                            }
+                            
+                            document.getElementById('user-id-display').textContent = userId.substring(0, 10) + '...';
+                        }, (error) => {
+                            console.error("데이터 수신 오류: ", error);
+                        });
+
                     } else {
-                        await signInAnonymously(auth);
+                        console.log("로그인된 사용자가 없습니다.");
+                        userId = null;
+                        document.getElementById('user-id-display').textContent = '로그인 필요';
                     }
+                });
+
+                try {
+                    await signInAnonymously(auth);
                 } catch (error) {
-                    console.error("Firebase authentication error: ", error);
+                    console.error("Firebase 익명 인증 오류: ", error);
+                    alert("Firebase 인증에 실패했습니다. 설정을 확인해주세요.");
                 }
             } else {
-                console.error("Firebase config is missing. Data persistence will not work.");
+                console.error("Firebase 설정이 비어있습니다. 데이터를 로드할 수 없습니다.");
+                alert("Firebase 구성(Config) 정보가 index.html 파일에 입력되지 않았습니다. 코드를 수정해주세요.");
             }
         };
 
@@ -52,7 +113,7 @@
         const calculateBMI = (height, weight) => {
             if (!height || !weight || height <= 0 || weight <= 0) return 0;
             const heightM = height / 100;
-            return weight / (heightM * heightM);
+            return (weight / (heightM * heightM));
         };
 
         const calculateAchievementRate = (data) => {
@@ -64,20 +125,18 @@
                 const latestBmi = member.bmi_history.length > 0 ? member.bmi_history[member.bmi_history.length - 1].bmi : 0;
                 const latestWeight = member.weight_history.length > 0 ? member.weight_history[member.weight_history.length - 1].weight : 0;
                 
-                // BMI 정상 여부
                 if (latestBmi >= 18.5 && latestBmi < 24.9) {
                     normalCount++;
                 }
 
-                // 목표 체중 달성 여부 (+- 1kg 허용)
                 const isWeightGoalAchieved = member.target_weight && latestWeight >= member.target_weight - 1 && latestWeight <= member.target_weight + 1;
                 if (isWeightGoalAchieved) {
                     weightGoalCount++;
                 }
             });
 
-            // 전체 목표 달성률 (BMI 정상 + 체중 목표 달성)
             const totalGoals = data.length * 2;
+            if (totalGoals === 0) return 0;
             const achievedGoals = normalCount + weightGoalCount;
             return Math.round((achievedGoals / totalGoals) * 100);
         };
@@ -104,41 +163,49 @@
             const bmi = calculateBMI(height, weight);
             const today = new Date().toISOString().split('T')[0];
 
-            const docRef = doc(db, `artifacts/${appId}/users/${userId}/family_health/${name}`);
+            const docRef = doc(db, `users/${userId}/health_data/family_info`);
 
             try {
                 const docSnap = await getDoc(docRef);
-                const existingData = docSnap.exists() ? docSnap.data() : {
+                const currentData = docSnap.exists() ? docSnap.data() : {};
+
+                const existingMemberData = currentData[name] || {
+                    name: name,
+                    initial_weight: weight,
                     bmi_history: [],
-                    weight_history: [],
-                    initial_weight: weight
+                    weight_history: []
                 };
 
-                const newBmiHistory = [...(existingData.bmi_history || []), { date: today, bmi: bmi }];
-                const newWeightHistory = [...(existingData.weight_history || []), { date: today, weight: weight }];
+                const newBmiHistory = [...existingMemberData.bmi_history, { date: today, bmi: bmi }];
+                const newWeightHistory = [...existingMemberData.weight_history, { date: today, weight: weight }];
                 
-                await setDoc(docRef, {
-                    name,
+                const updatedMemberData = {
+                    ...existingMemberData,
                     age,
                     gender,
                     body_type: bodyType,
                     height,
                     target_weight: targetWeight,
-                    initial_weight: existingData.initial_weight,
-                    bmi_history: newBmiHistory.slice(-5), // 최신 5개 데이터만 유지
-                    weight_history: newWeightHistory.slice(-5) // 최신 5개 데이터만 유지
+                    bmi_history: newBmiHistory.slice(-5),
+                    weight_history: newWeightHistory.slice(-5)
+                };
+
+                await setDoc(docRef, {
+                    ...currentData,
+                    [name]: updatedMemberData
                 });
                 
                 document.getElementById('memberName').value = '';
                 document.getElementById('memberAge').value = '';
-                document.getElementById('memberGender').value = '';
-                document.getElementById('memberBodyType').value = '';
+                document.getElementById('memberGender').value = '남자';
+                document.getElementById('memberBodyType').value = '표준';
                 document.getElementById('memberHeight').value = '';
                 document.getElementById('memberWeight').value = '';
                 document.getElementById('memberTargetWeight').value = '';
                 
             } catch (e) {
-                console.error("Error adding document: ", e);
+                console.error("문서 추가/업데이트 오류: ", e);
+                alert("데이터 저장 중 오류가 발생했습니다.");
             }
         };
 
@@ -175,7 +242,6 @@
             const progressBar = document.getElementById('progress-bar');
             rateDisplay.textContent = `${rate}%`;
             progressBar.style.width = `${rate}%`;
-            progressBar.style.backgroundColor = rate >= 100 ? '#4CAF50' : '#FFC107'; // 100% 달성 시 색상 변경
         };
 
         window.renderChart = (data) => {
@@ -184,140 +250,53 @@
                 myChart.destroy();
             }
 
-            const allDates = [...new Set(data.flatMap(member => member.bmi_history.map(d => d.date)))].sort();
+            const allDates = [...new Set(data.flatMap(member => member.weight_history.map(d => d.date)))].sort();
             
-            const bmiDatasets = data.map(member => ({
-                label: `${member.name} BMI`,
-                data: member.bmi_history.map(d => d.bmi),
-                borderColor: '#' + Math.floor(Math.random() * 16777215).toString(16),
-                borderWidth: 2,
-                borderDash: [5, 5],
-                type: 'line',
-                fill: false,
-                datalabels: {
-                    display: true,
-                    formatter: (value) => value.toFixed(1)
-                },
-                yAxisID: 'y'
-            }));
-
-            const weightDatasets = data.map(member => ({
-                label: `${member.name} 체중`,
-                data: member.weight_history.map(d => d.weight),
-                borderColor: '#' + Math.floor(Math.random() * 16777215).toString(16),
-                borderWidth: 2,
-                borderDash: [2, 2],
-                type: 'line',
-                fill: false,
-                datalabels: {
-                    display: true,
-                    formatter: (value) => value.toFixed(1)
-                },
-                yAxisID: 'y1'
-            }));
-
-            const targetWeightDatasets = data.map(member => ({
-                label: `${member.name} 목표 체중`,
-                data: allDates.map(() => member.target_weight),
-                borderColor: 'rgba(255, 255, 255, 0.5)',
-                borderWidth: 1,
-                borderDash: [5, 5],
-                pointRadius: 0,
-                type: 'line',
-                fill: false,
-                datalabels: { display: false },
-                yAxisID: 'y1'
-            }));
+            const datasets = data.map(member => {
+                const color = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+                return {
+                    label: `${member.name} 체중`,
+                    data: allDates.map(date => {
+                        const record = member.weight_history.find(d => d.date === date);
+                        return record ? record.weight : null;
+                    }),
+                    borderColor: color,
+                    backgroundColor: color,
+                    type: 'line',
+                    fill: false,
+                    yAxisID: 'y'
+                }
+            });
 
             myChart = new Chart(chartCanvas, {
                 data: {
                     labels: allDates,
-                    datasets: [...bmiDatasets, ...weightDatasets, ...targetWeightDatasets]
+                    datasets: datasets
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    spanGaps: true,
                     plugins: {
-                        legend: {
-                            labels: { color: 'white' }
-                        },
-                        title: {
-                            display: true,
-                            text: '가족 BMI 및 체중 추이',
-                            color: 'white',
-                            font: { size: 18 }
-                        },
-                        datalabels: {
-                            color: 'white',
-                            anchor: 'end',
-                            align: 'top',
-                        }
+                        legend: { labels: { color: 'white' } },
+                        title: { display: true, text: '가족 체중 변화 추이', color: 'white', font: { size: 18 } },
+                        datalabels: { color: 'white', anchor: 'end', align: 'top', formatter: (value) => value ? value.toFixed(1) : '' }
                     },
                     scales: {
-                        x: {
-                            ticks: { color: 'white' },
-                            grid: { color: 'rgba(255, 255, 255, 0.2)' }
-                        },
+                        x: { ticks: { color: 'white' }, grid: { color: 'rgba(255, 255, 255, 0.2)' } },
                         y: {
                             type: 'linear',
                             display: true,
                             position: 'left',
-                            title: {
-                                display: true,
-                                text: 'BMI',
-                                color: 'white'
-                            },
+                            title: { display: true, text: '체중 (kg)', color: 'white' },
                             ticks: { color: 'white' },
-                            grid: { color: 'rgba(255, 255, 255, 0.2)' },
-                            min: 15, max: 35
-                        },
-                        y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: {
-                                display: true,
-                                text: '체중 (kg)',
-                                color: 'white'
-                            },
-                            ticks: { color: 'white' },
-                            grid: { drawOnChartArea: false }
+                            grid: { color: 'rgba(255, 255, 255, 0.2)' }
                         }
                     }
                 },
                 plugins: [ChartDataLabels]
             });
         };
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-                const userColRef = doc(db, `artifacts/${appId}/users/${userId}/health_data/family_info`);
-                
-                onSnapshot(userColRef, async (docSnap) => {
-                    if (docSnap.exists()) {
-                        familyHealthData = Object.values(docSnap.data());
-                    } else {
-                        // 문서가 없을 경우 빈 객체로 초기화
-                        await setDoc(userColRef, {});
-                        familyHealthData = [];
-                    }
-
-                    // 최신 데이터로 UI 업데이트
-                    renderFamilyList(familyHealthData);
-                    renderChart(familyHealthData);
-                    renderAchievementRate(calculateAchievementRate(familyHealthData));
-                    
-                    document.getElementById('user-id-display').textContent = userId;
-                }, (error) => {
-                    console.error("Error listening to document: ", error);
-                });
-
-            } else {
-                console.log("No user is signed in.");
-                document.getElementById('user-id-display').textContent = '로그인 필요';
-            }
-        });
     </script>
     <style>
         body {
@@ -422,582 +401,5 @@
         </div>
     </div>
 </body>
-</html>                  beginAtZero: false,
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.1)',
-                            },
-                            ticks: {
-                                color: '#ffffff',
-                            },
-                            title: {
-                                display: true,
-                                text: '체중 (kg)',
-                                color: '#ffffff',
-                            }
-                        }
-                    }
-                }
-            };
-
-            const ctx = document.getElementById('weightChart').getContext('2d');
-            if (chart) {
-                chart.destroy();
-            }
-            chart = new Chart(ctx, config);
-        }
-
-        // Function to call AI for advice
-        async function generateAdvice(memberData, currentWeight, bmi, achievementPercentage) {
-            aiAdvice.textContent = "AI가 조언을 생성 중입니다...";
-            bmiReferenceTable.textContent = "BMI 기준표를 생성 중입니다...";
-
-            const systemPrompt = "당신은 체중 관리에 대한 전문가이자 친절한 코치입니다. 사용자의 나이, 성별, 현재 BMI, 목표 달성률을 기반으로 긍정적이고 실용적인 건강 조언을 1-2 문장으로 작성해 주세요. 전문적인 의학적 조언 대신 동기 부여와 일상적인 습관에 대한 팁을 제공하세요. 존댓말을 사용해 주세요. 체중 기록에 대한 분석을 바탕으로, 체형에 따른 BMI 기준표도 제공해 주세요.";
-            const userQuery = `이름: ${memberData.name}, 나이: ${memberData.age}, 성별: ${memberData.gender}, 현재 체중: ${currentWeight}kg, BMI: ${bmi}, 목표 달성률: ${achievementPercentage}%`;
-            
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                tools: [{ "google_search": {} }],
-                systemInstruction: {
-                    parts: [{ text: systemPrompt }]
-                }
-            };
-
-            const apiKey = "";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (text) {
-                    const [advice, ...rest] = text.split('BMI 기준표:');
-                    aiAdvice.textContent = advice.trim();
-                    if (rest.length > 0) {
-                        bmiReferenceTable.innerHTML = `
-                            <p class="font-bold mb-2">나이 및 성별을 고려한 기준표:</p>
-                            ${rest[0].trim().replace(/\n/g, '<br>')}
-                        `;
-                    } else {
-                         bmiReferenceTable.textContent = "나이와 성별을 반영한 BMI 기준표가 없습니다.";
-                    }
-                } else {
-                    aiAdvice.textContent = "조언을 생성하는 데 실패했습니다. 잠시 후 다시 시도해 주세요.";
-                    bmiReferenceTable.textContent = "BMI 기준표를 불러올 수 없습니다.";
-                }
-            } catch (error) {
-                console.error("AI Advice generation failed:", error);
-                aiAdvice.textContent = "네트워크 오류로 인해 조언을 생성할 수 없습니다.";
-                bmiReferenceTable.textContent = "네트워크 오류로 인해 BMI 기준표를 불러올 수 없습니다.";
-            }
-        }
-    </script>
-</body>
-</html>        />
-              ))}
-            </main>
-            
-            <div className="text-center mt-12 text-white/50 text-sm">
-              <p>&copy; 2024 가족 건강 관리</p>
-            </div>
-          </div>
-        </div>
-      );
-    };
-
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
-  </script>
-</body>
-</html>]);
-
-      if (!hasAccess) {
-        return <PasswordGate onAccess={setHasAccess} />;
-      }
-      
-      const familyMembers = Object.values(data);
-
-      return (
-        <div className="min-h-screen animated-bg">
-          {toast && <ToastMessage message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-          <div className="p-4 md:p-8 lg:p-12 text-white">
-            <header className="text-center py-8">
-              <h1 className="text-4xl md:text-5xl font-extrabold gradient-text leading-tight drop-shadow-md">
-                가족 건강 대시보드
-              </h1>
-              <p className="text-white/70 mt-4 max-w-2xl mx-auto">
-                우리 가족의 건강 데이터를 한눈에 확인하고 관리하세요.
-              </p>
-              <div className="mt-4 text-xs text-white/50">
-                <span>공유 ID: </span>
-                <span className="font-mono">{appId}</span>
-              </div>
-            </header>
-
-            <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {familyMembers.map(member => (
-                <FamilyMember 
-                  key={member.id} 
-                  memberData={member} 
-                  onUpdate={updateData} 
-                  baseData={initialFamilyData[member.id]}
-                  setToast={setToast}
-                  isLoading={isLoading}
-                />
-              ))}
-            </main>
-            
-            <div className="text-center mt-12 text-white/50 text-sm">
-              <p>&copy; 2024 가족 건강 관리</p>
-            </div>
-          </div>
-        </div>
-      );
-    };
-
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
-  </script>
-</body>
-</html>        let progress = ((currentWeight - initialWeight) / (targetWeight - initialWeight)) * 100;
-          progress = Math.min(100, Math.max(0, progress));
-          return progress;
-        });
-
-        chartRef.current = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: labels,
-            datasets: [{
-              label: '현재 BMI',
-              data: currentBmis,
-              backgroundColor: [
-                'rgba(75, 192, 192, 0.6)', 
-                'rgba(255, 159, 64, 0.6)', 
-                'rgba(54, 162, 235, 0.6)', 
-                'rgba(153, 102, 255, 0.6)'
-              ],
-              borderColor: [
-                'rgba(75, 192, 192, 1)', 
-                'rgba(255, 159, 64, 1)', 
-                'rgba(54, 162, 235, 1)', 
-                'rgba(153, 102, 255, 1)'
-              ],
-              borderWidth: 1,
-              datalabels: {
-                color: 'white',
-                anchor: 'end',
-                align: 'top',
-                offset: 5,
-                formatter: (value) => value > 0 ? value.toFixed(1) : ''
-              }
-            },
-            {
-              label: '목표 BMI',
-              data: targetBmis,
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
-              borderColor: 'rgba(255, 255, 255, 0.8)',
-              borderWidth: 2,
-              type: 'line',
-              fill: false,
-              datalabels: {
-                display: false
-              }
-            },
-            {
-              label: '목표 달성률 (%)',
-              data: progressPercentages,
-              type: 'line',
-              fill: false,
-              borderColor: '#f5576c',
-              borderWidth: 2,
-              borderDash: [5, 5],
-              pointBackgroundColor: '#f5576c',
-              datalabels: {
-                color: '#f5576c',
-                anchor: 'start',
-                align: 'end',
-                offset: 10,
-                formatter: (value) => {
-                  return value !== null ? `${value.toFixed(0)}%` : '';
-                }
-              }
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                labels: { color: 'white' }
-              },
-              title: {
-                display: true,
-                text: '가족 BMI 및 목표 달성률',
-                color: 'white',
-                font: { size: 18, family: 'Noto Sans KR' }
-              }
-            },
-            scales: {
-              x: {
-                ticks: { color: 'white' },
-                grid: { color: 'rgba(255, 255, 255, 0.2)' }
-              },
-              y: {
-                ticks: { color: 'white' },
-                grid: { color: 'rgba(255, 255, 255, 0.2)' },
-                min: 15, max: 35
-              }
-            }
-          },
-          plugins: [ChartDataLabels]
-        });
-
-        return () => {
-          if (chartRef.current) {
-            chartRef.current.destroy();
-          }
-        };
-      }, [familyHealthData]);
-
-      return <canvas ref={canvasRef} />;
-    };
-
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
-  </script>
-</body>
 </html>
-    if (auth && !auth.currentUser) {
-            authLogin();
-        }
 
-        return () => unsubscribeAuth();
-      }, []);
-
-      useEffect(() => {
-        if (toast) {
-          const timer = setTimeout(() => setToast(null), 3000);
-          return () => clearTimeout(timer);
-        }
-      }, [toast]);
-      
-      if (!hasAccess) {
-        return <PasswordGate onAccess={setHasAccess} />;
-      }
-      
-      return (
-        <div className="min-h-screen animated-bg">
-          {toast && <ToastMessage message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-          <div className="p-4 md:p-8 lg:p-12 text-white">
-            <header className="text-center py-8">
-              <h1 className="text-5xl md:text-6xl font-extrabold mb-2 gradient-text">
-                Ultimate Health Dashboard
-              </h1>
-              <p className="text-lg md:text-xl font-medium text-white/80">
-                <i className="fas fa-heartbeat mr-2 pulse"></i> 우리 가족 건강 관리
-              </p>
-              {userId && (
-                  <div className="text-xs text-white/50 mt-2 break-all">User ID: {userId}</div>
-              )}
-            </header>
-            <div className="fade-in">
-              <div className="grid gap-8 mb-12 lg:grid-cols-2 xl:grid-cols-4">
-                {Object.keys(data).map(id => (
-                  <FamilyMember
-                    key={id}
-                    memberData={data[id]}
-                    onUpdate={() => {}} // Placeholder, logic is in handleSave
-                    baseData={initialFamilyData[id]}
-                    setToast={setToast}
-                    auth={window.firebase.auth}
-                  />
-                ))}
-              </div>
-              <div className="w-full h-[400px] glassmorphism p-4 rounded-3xl">
-                {authReady ? (
-                  <AdvancedBMIChart familyHealthData={data} initialData={initialFamilyData} />
-                ) : (
-                  <div className="flex items-center justify-center w-full h-full text-white/70">
-                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-white border-t-transparent mr-4"></div>
-                    데이터를 불러오는 중입니다...
-                  </div>
-                )}
-              </div>
-            </div>
-            <footer className="text-center text-white/50 text-sm mt-12 py-4 border-t border-white/20">
-              © 2025. 수아동혁가족. All Rights Reserved.
-              <div className="mt-2 text-xs break-all">이 앱은 파이어베이스 데이터베이스에 데이터를 저장합니다.</div>
-            </footer>
-          </div>
-        </div>
-      );
-    };
-
-    // Chart.js Component
-    const AdvancedBMIChart = ({ familyHealthData, initialData }) => {
-      const canvasRef = useRef(null);
-      const chartRef = useRef(null);
-
-      useEffect(() => {
-        if (!familyHealthData || Object.keys(familyHealthData).length === 0) return;
-        
-        const ctx = canvasRef.current.getContext('2d');
-        
-        if (chartRef.current) {
-            chartRef.current.destroy();
-        }
-
-        const labels = Object.values(familyHealthData).map(member => member.name);
-        const currentBmis = Object.values(familyHealthData).map(member => {
-          const heightM = initialData[member.id].height / 100;
-          return member.weight ? (member.weight / (heightM * heightM)) : 0;
-        });
-        
-        const targetBmis = Object.values(initialData).map(member => member.recommendedBMI);
-        
-        const progressPercentages = Object.values(familyHealthData).map(member => {
-          const initialWeight = initialData[member.id].weight;
-          const targetWeight = member.targetWeight;
-          const currentWeight = member.weight;
-          
-          if (!targetWeight || initialWeight === targetWeight) {
-            return null;
-          }
-          
-          let progress = ((currentWeight - initialWeight) / (targetWeight - initialWeight)) * 100;
-          progress = Math.min(100, Math.max(0, progress));
-          return progress;
-        });
-
-        chartRef.current = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: labels,
-            datasets: [{
-              label: '현재 BMI',
-              data: currentBmis,
-              backgroundColor: [
-                'rgba(75, 192, 192, 0.6)', 
-                'rgba(255, 159, 64, 0.6)', 
-                'rgba(54, 162, 235, 0.6)', 
-                'rgba(153, 102, 255, 0.6)'
-              ],
-              borderColor: [
-                'rgba(75, 192, 192, 1)', 
-                'rgba(255, 159, 64, 1)', 
-                'rgba(54, 162, 235, 1)', 
-                'rgba(153, 102, 255, 1)'
-              ],
-              borderWidth: 1,
-              datalabels: {
-                color: 'white',
-                anchor: 'end',
-                align: 'top',
-                offset: 5,
-                formatter: (value) => value > 0 ? value.toFixed(1) : ''
-              }
-            },
-            {
-              label: '목표 BMI',
-              data: targetBmis,
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
-              borderColor: 'rgba(255, 255, 255, 0.8)',
-              borderWidth: 2,
-              type: 'line',
-              fill: false,
-              datalabels: {
-                display: false
-              }
-            },
-            {
-              label: '목표 달성률 (%)',
-              data: progressPercentages,
-              type: 'line',
-              fill: false,
-              borderColor: '#f5576c',
-              borderWidth: 2,
-              borderDash: [5, 5],
-              pointBackgroundColor: '#f5576c',
-              datalabels: {
-                color: '#f5576c',
-                anchor: 'start',
-                align: 'end',
-                offset: 10,
-                formatter: (value) => {
-                  return value !== null ? `${value.toFixed(0)}%` : '';
-                }
-              }
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                labels: { color: 'white' }
-              },
-              title: {
-                display: true,
-                text: '가족 BMI 및 목표 달성률',
-                color: 'white',
-                font: { size: 18, family: 'Noto Sans KR' }
-              }
-            },
-            scales: {
-              x: {
-                ticks: { color: 'white' },
-                grid: { color: 'rgba(255, 255, 255, 0.2)' }
-              },
-              y: {
-                ticks: { color: 'white' },
-                grid: { color: 'rgba(255, 255, 255, 0.2)' },
-                min: 15, max: 35
-              }
-            }
-          },
-          plugins: [ChartDataLabels]
-        });
-
-        return () => {
-          if (chartRef.current) {
-            chartRef.current.destroy();
-          }
-        };
-      }, [familyHealthData]);
-
-      return <canvas ref={canvasRef} />;
-    };
-
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
-  </script>
-</body>
-</html>               onUpdate={updateData}
-                      baseData={initialFamilyData[id]}
-                      setToast={setToast}
-                    />
-                  ))}
-                </div>
-                <div className="w-full h-[400px] glassmorphism p-4 rounded-3xl">
-                  <AdvancedBMIChart familyHealthData={data} />
-                </div>
-              </div>
-            )}
-            <footer className="text-center text-white/50 text-sm mt-12 py-4 border-t border-white/20">
-              © 2025. 수아동혁가족. All Rights Reserved.
-              <div className="mt-2 text-xs break-all">User ID: {displayUserId}</div>
-            </footer>
-          </div>
-        </div>
-      );
-    };
-
-    // Chart.js Component
-    const AdvancedBMIChart = ({ familyHealthData }) => {
-      const canvasRef = useRef(null);
-      const chartRef = useRef(null);
-
-      useEffect(() => {
-        if (!familyHealthData || Object.keys(familyHealthData).length === 0) return;
-        
-        const ctx = canvasRef.current.getContext('2d');
-        
-        if (chartRef.current) {
-            chartRef.current.destroy();
-        }
-
-        const labels = Object.values(familyHealthData).map(member => member.name);
-        const currentBmis = Object.values(familyHealthData).map(member => {
-          const heightM = initialFamilyData[member.id].height / 100;
-          return member.weight ? (member.weight / (heightM * heightM)) : 0;
-        });
-        const targetBmis = Object.values(initialFamilyData).map(member => member.recommendedBMI);
-        
-        chartRef.current = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: labels,
-            datasets: [{
-              label: '현재 BMI',
-              data: currentBmis,
-              backgroundColor: [
-                'rgba(75, 192, 192, 0.6)', 
-                'rgba(255, 159, 64, 0.6)', 
-                'rgba(54, 162, 235, 0.6)', 
-                'rgba(153, 102, 255, 0.6)'
-              ],
-              borderColor: [
-                'rgba(75, 192, 192, 1)', 
-                'rgba(255, 159, 64, 1)', 
-                'rgba(54, 162, 235, 1)', 
-                'rgba(153, 102, 255, 1)'
-              ],
-              borderWidth: 1
-            },
-            {
-              label: '목표 BMI',
-              data: targetBmis,
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
-              borderColor: 'rgba(255, 255, 255, 0.8)',
-              borderWidth: 2,
-              type: 'line',
-              fill: false,
-              datalabels: {
-                display: false
-              }
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                labels: { color: 'white' }
-              },
-              title: {
-                display: true,
-                text: '가족 BMI 추이',
-                color: 'white',
-                font: { size: 18, family: 'Noto Sans KR' }
-              },
-              datalabels: {
-                color: 'white',
-                anchor: 'end',
-                align: 'top',
-                formatter: (value) => value.toFixed(1)
-              }
-            },
-            scales: {
-              x: {
-                ticks: { color: 'white' },
-                grid: { color: 'rgba(255, 255, 255, 0.2)' }
-              },
-              y: {
-                ticks: { color: 'white' },
-                grid: { color: 'rgba(255, 255, 255, 0.2)' },
-                min: 15, max: 35
-              }
-            }
-          },
-          plugins: [ChartDataLabels]
-        });
-
-        return () => {
-          if (chartRef.current) {
-            chartRef.current.destroy();
-          }
-        };
-      }, [familyHealthData]);
-
-      return <canvas ref={canvasRef} />;
-    };
-
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
-  </script>
-</body>
-</html>

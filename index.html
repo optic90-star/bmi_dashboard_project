@@ -10,29 +10,19 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, getDoc, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // ===================================================================================
-        // Firebase 프로젝트 구성 정보가 적용되었습니다.
-        // ===================================================================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyDVvT5a8vh8CICbT18cqF5dMqRkxalgJWk",
-            authDomain: "bmi-dashboard-project.firebaseapp.com",
-            projectId: "bmi-dashboard-project",
-            storageBucket: "bmi-dashboard-project.firebasestorage.app",
-            messagingSenderId: "124744707008",
-            appId: "1:124744707008:web:02757469b90412cc013625",
-            measurementId: "G-CZQNBEYYCW"
-        };
-        // ===================================================================================
+        // Firebase project config. DO NOT EDIT.
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         let db, auth;
         let userId = null;
         let familyHealthData = [];
         let myChart = null;
 
-        // 추가된 부분: 초기 샘플 데이터
+        // Additional: Initial sample data
         const getInitialFamilyData = () => {
             const today = new Date().toISOString().split('T')[0];
             return {
@@ -55,9 +45,8 @@
             };
         };
 
-
         window.onload = async () => {
-            if (firebaseConfig && firebaseConfig.apiKey) {
+            if (Object.keys(firebaseConfig).length > 0) {
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -65,41 +54,42 @@
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
-                        const docRef = doc(db, `users/${userId}/health_data/family_info`);
+                        const docRef = doc(db, `artifacts/${appId}/users/${userId}/health_data/family_info`);
                         
                         onSnapshot(docRef, async (docSnap) => {
                             if (!docSnap.exists() || Object.keys(docSnap.data()).length === 0) {
-                                console.log("초기 데이터가 없어 샘플 데이터를 생성합니다.");
+                                console.log("No initial data, creating sample data.");
                                 await setDoc(docRef, getInitialFamilyData());
-                                // onSnapshot이 데이터를 다시 로드하므로 여기서 UI를 직접 렌더링할 필요 없음
                             } else {
                                 familyHealthData = Object.values(docSnap.data());
                                 renderFamilyList(familyHealthData);
                                 renderChart(familyHealthData);
                                 renderAchievementRate(calculateAchievementRate(familyHealthData));
                             }
-                            
-                            document.getElementById('user-id-display').textContent = userId.substring(0, 10) + '...';
+                            document.getElementById('user-id-display').textContent = userId;
                         }, (error) => {
-                            console.error("데이터 수신 오류: ", error);
+                            console.error("Data reception error: ", error);
                         });
-
                     } else {
-                        console.log("로그인된 사용자가 없습니다.");
+                        console.log("No user is signed in.");
                         userId = null;
                         document.getElementById('user-id-display').textContent = '로그인 필요';
                     }
                 });
 
                 try {
-                    await signInAnonymously(auth);
+                    if (typeof __initial_auth_token !== 'undefined') {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
                 } catch (error) {
-                    console.error("Firebase 익명 인증 오류: ", error);
-                    alert("Firebase 인증에 실패했습니다. 설정을 확인해주세요.");
+                    console.error("Firebase Auth Error: ", error);
+                    alert("Firebase authentication failed. Please check your settings.");
                 }
             } else {
-                console.error("Firebase 설정이 비어있습니다. 데이터를 로드할 수 없습니다.");
-                alert("Firebase 구성(Config) 정보가 index.html 파일에 입력되지 않았습니다. 코드를 수정해주세요.");
+                console.error("Firebase config is empty. Cannot load data.");
+                alert("Firebase config is empty. Please check the code.");
             }
         };
 
@@ -143,7 +133,7 @@
 
         window.handleSave = async () => {
             if (!userId) {
-                alert("로그인 중이 아닙니다. 데이터를 저장할 수 없습니다.");
+                console.error("Not logged in. Cannot save data.");
                 return;
             }
 
@@ -156,14 +146,14 @@
             const targetWeight = parseFloat(document.getElementById('memberTargetWeight').value);
 
             if (!name || !age || !gender || !bodyType || !height || !weight || !targetWeight) {
-                alert('모든 정보를 정확히 입력해주세요.');
+                console.error('Please enter all information correctly.');
                 return;
             }
 
             const bmi = calculateBMI(height, weight);
             const today = new Date().toISOString().split('T')[0];
 
-            const docRef = doc(db, `users/${userId}/health_data/family_info`);
+            const docRef = doc(db, `artifacts/${appId}/users/${userId}/health_data/family_info`);
 
             try {
                 const docSnap = await getDoc(docRef);
@@ -204,8 +194,7 @@
                 document.getElementById('memberTargetWeight').value = '';
                 
             } catch (e) {
-                console.error("문서 추가/업데이트 오류: ", e);
-                alert("데이터 저장 중 오류가 발생했습니다.");
+                console.error("Document add/update error: ", e);
             }
         };
 
@@ -402,4 +391,3 @@
     </div>
 </body>
 </html>
-

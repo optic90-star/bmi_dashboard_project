@@ -12,15 +12,69 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
 
-  <!-- ✅ Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 
   <style>
-    body { font-family: 'Inter', sans-serif; background: #0f172a; color: white; min-height: 100vh; }
-    .glassmorphism { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
-    .gradient-text { background: linear-gradient(to right, #4facfe, #00f2fe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    body { 
+      font-family: 'Noto Sans KR', sans-serif; 
+      background: #0f172a; 
+      color: white; 
+      min-height: 100vh;
+      transition: background 0.5s ease;
+    }
+    .glassmorphism { 
+      background: rgba(255,255,255,0.1); 
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    .gradient-text { 
+      background: linear-gradient(to right, #4facfe, #00f2fe); 
+      -webkit-background-clip: text; 
+      -webkit-text-fill-color: transparent;
+    }
+    .bmi-excellent { background-color: #43e97b; color: white; }
+    .bmi-good { background-color: #4facfe; color: white; }
+    .bmi-warning { background-color: #feca57; color: white; }
+    .bmi-danger { background-color: #ff6b6b; color: white; }
+    .card-hover { transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out; }
+    .card-hover:hover { transform: translateY(-5px); box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+    .neon-glow {
+      box-shadow: 0 0 5px #00f2fe, 0 0 10px #00f2fe, 0 0 20px #00f2fe;
+      transition: box-shadow 0.3s ease-in-out;
+    }
+    .neon-glow:hover {
+      box-shadow: 0 0 10px #00f2fe, 0 0 20px #00f2fe, 0 0 30px #00f2fe;
+    }
+    .animated-bg {
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
+    }
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .pulse { animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    .fade-in { animation: fadeIn 1s ease-in-out; }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .slide-up { animation: slideUp 0.5s ease-out; }
+    @keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -32,7 +86,7 @@
   const Chart = window.Chart;
   const ChartDataLabels = window.ChartDataLabels;
 
-  // ✅ Firebase 초기화
+  // Firebase 초기화
   const firebaseConfig = {
     apiKey: "AIzaSyDVvT5a8vh8CICbT18cqF5dMqRkxalgJWk",
     authDomain: "bmi-dashboard-project.firebaseapp.com",
@@ -47,67 +101,392 @@
 
   // 기본 가족 데이터
   const initialFamilyData = {
-    dad: { id: "dad", name: "아빠", height: 178, weight: 95, targetWeight: 80 },
-    mom: { id: "mom", name: "엄마", height: 165, weight: 60, targetWeight: 55 },
-    daughter: { id: "daughter", name: "수아", height: 160, weight: 48, targetWeight: 50 },
-    son: { id: "son", name: "동혁", height: 170, weight: 70, targetWeight: 65 }
+    dad: { id: "dad", name: "아빠", height: 178, weight: 95, targetWeight: 80, emoji: "👨", age: 45, profession: "개발자", recommendedBMI: 22 },
+    mom: { id: "mom", name: "엄마", height: 165, weight: 60, targetWeight: 55, emoji: "👩", age: 42, profession: "디자이너", recommendedBMI: 21 },
+    daughter: { id: "daughter", name: "수아", height: 160, weight: 48, targetWeight: 50, emoji: "👧", age: 15, profession: "학생", recommendedBMI: 20 },
+    son: { id: "son", name: "동혁", height: 170, weight: 70, targetWeight: 65, emoji: "👦", age: 18, profession: "학생", recommendedBMI: 22 }
   };
-
+  
   // 비밀번호 게이트
   const PasswordGate = ({ onAccess }) => {
     const [pw, setPw] = useState("");
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-slate-900">
-        <div className="bg-slate-800 p-8 rounded-xl">
-          <h2 className="text-2xl mb-4 font-bold">접속 비밀번호 입력</h2>
-          <input type="password" value={pw} onChange={e => setPw(e.target.value)} className="p-2 rounded text-black mb-4" />
-          <button onClick={() => { if (pw === "1115") onAccess(true) }} className="bg-blue-500 px-4 py-2 rounded">확인</button>
+        <div className="bg-slate-800 p-8 rounded-xl shadow-lg">
+          <h2 className="text-2xl mb-4 font-bold text-center text-white">접속 비밀번호 입력</h2>
+          <input 
+            type="password" 
+            value={pw} 
+            onChange={e => setPw(e.target.value)} 
+            className="p-2 rounded text-black w-full mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onKeyDown={e => { if(e.key==="Enter" && pw==="1115") onAccess(true) }}
+          />
+          <button 
+            onClick={() => { if (pw === "1115") onAccess(true) }} 
+            className="bg-blue-500 hover:bg-blue-600 transition-colors px-4 py-2 rounded w-full font-semibold"
+          >
+            확인
+          </button>
         </div>
       </div>
     );
   };
 
-  // ✅ BMI 이력 차트
-  const HistoryChart = ({ logs }) => {
-    const canvasRef = useRef(null);
-    const chartRef = useRef(null);
-
-    useEffect(() => {
-      if (!logs || Object.keys(logs).length === 0) return;
-      const ctx = canvasRef.current.getContext("2d");
-      if (chartRef.current) chartRef.current.destroy();
-
-      const datasets = Object.keys(logs).map(id => ({
-        label: logs[id].name,
-        data: logs[id].entries.map(e => ({ x: e.date, y: e.bmi })),
-        borderColor: logs[id].color,
-        fill: false
-      }));
-
-      chartRef.current = new Chart(ctx, {
-        type: "line",
-        data: { datasets },
-        options: {
-          responsive: true,
-          plugins: { legend: { labels: { color: "white" } } },
-          scales: {
-            x: { type: "time", time: { unit: "day" }, ticks: { color: "white" } },
-            y: { min: 15, max: 35, ticks: { color: "white" } }
-          }
-        }
-      });
-
-      return () => { if (chartRef.current) chartRef.current.destroy(); };
-    }, [logs]);
-
-    return <canvas ref={canvasRef}></canvas>;
+  // Toast 메시지 컴포넌트
+  const ToastMessage = ({ message, type, onClose }) => {
+    const bgColor = type === "success" ? "bg-green-500" : "bg-red-500";
+    return (
+      <div className={`fixed bottom-5 right-5 ${bgColor} text-white px-4 py-2 rounded-lg shadow-lg z-50`}>
+        {message}
+      </div>
+    );
   };
 
-  // ✅ 메인 앱
+  // 원형 프로그레스 바 컴포넌트
+  const CircularProgress = ({ value, maxValue, color }) => {
+    const size = 120;
+    const strokeWidth = 12;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const progress = Math.min(Math.max(0, value / maxValue * 100), 100);
+    const dashoffset = circumference - (progress / 100) * circumference;
+
+    return (
+      <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+        <svg className="transform -rotate-90" width={size} height={size}>
+          <circle 
+            className="text-white/20" 
+            strokeWidth={strokeWidth} 
+            stroke="currentColor" 
+            fill="transparent" 
+            r={radius} 
+            cx={size/2} 
+            cy={size/2}
+          />
+          <circle 
+            className="transition-all duration-700 ease-in-out" 
+            strokeWidth={strokeWidth} 
+            stroke={color}
+            fill="transparent" 
+            r={radius} 
+            cx={size/2} 
+            cy={size/2}
+            strokeLinecap="round"
+            style={{ strokeDasharray: circumference, strokeDashoffset }}
+          />
+        </svg>
+        <div className="absolute text-white font-bold text-2xl">
+          {value.toFixed(1)}
+        </div>
+      </div>
+    );
+  };
+
+  // AI 건강 조언 컴포넌트
+  const HealthInsights = ({ memberData, baseData }) => {
+    const [insight, setInsight] = useState("");
+    const { weight, targetWeight, bodyType } = memberData;
+    const { height, name } = baseData;
+
+    useEffect(() => {
+      const getInsight = () => {
+        if (!weight || !targetWeight) return "체중과 목표 체중을 입력하시면 맞춤 조언을 받을 수 있습니다.";
+        
+        const bmi = weight / ((height/100) ** 2);
+        const weightDiff = weight - targetWeight;
+        const absWeightDiff = Math.abs(weightDiff).toFixed(1);
+        
+        let message = "";
+        if (bmi < 18.5) {
+          message = "현재 저체중이십니다. 영양가 있는 식단으로 건강하게 체중을 늘리는 것이 중요해요.";
+        } else if (bmi < 25) {
+          message = "정상 체중을 유지하고 계시네요! 지금의 건강한 습관을 계속 이어나가세요.";
+        } else if (bmi < 30) {
+          message = "과체중이십니다. 꾸준한 운동과 식단 조절을 통해 건강한 체중으로 돌아가세요.";
+        } else {
+          message = "비만으로 분류됩니다. 전문가와 상담하여 체계적인 관리를 시작하는 것을 추천합니다.";
+        }
+
+        if (weightDiff > 0) {
+          message += ` 목표 체중보다 ${absWeightDiff}kg 초과 상태입니다.`;
+        } else if (weightDiff < 0) {
+          message += ` 목표까지 ${absWeightDiff}kg 남았습니다. 거의 다 왔어요!`;
+        } else {
+          message += " 목표 체중에 완벽하게 도달하셨습니다! 정말 대단해요!";
+        }
+
+        if (bodyType === "근육형") {
+          message += " 체중계의 숫자보다 체지방률 관리가 더 중요할 수 있습니다.";
+        } else if (bodyType === "마른 비만") {
+          message += " 체지방을 줄이고 근육을 늘리는 것이 핵심입니다.";
+        }
+
+        return message;
+      };
+      setInsight(getInsight());
+    }, [memberData, baseData]);
+
+    return (
+      <div className="p-4 bg-white/5 rounded-xl text-white/80 border border-white/10">
+        <h4 className="text-sm font-semibold mb-2 flex items-center">
+          <i className="fas fa-brain mr-2 text-blue-300"></i>AI 건강 인사이트
+        </h4>
+        <p className="text-sm">{insight}</p>
+      </div>
+    );
+  };
+
+
+  // 가족 구성원 카드 컴포넌트
+  const FamilyMember = ({ memberData, onUpdate, baseData, setToast }) => {
+    const [localData, setLocalData] = useState(memberData);
+    const [isSaving, setIsSaving] = useState(false);
+    const [showDetails, setShowDetails] = useState(false);
+    const timeoutRef = useRef(null);
+
+    useEffect(() => {
+      setLocalData(memberData);
+    }, [memberData]);
+
+    const saveDataToFirestore = async (data) => {
+      const { id } = baseData;
+      const docRef = db.collection("family").doc(id);
+
+      const heightM = baseData.height / 100;
+      const newBmi = data.weight ? (data.weight / (heightM * heightM)).toFixed(1) : null;
+      const today = new Date().toISOString().split("T")[0];
+
+      await docRef.set({
+        weight: parseFloat(data.weight),
+        targetWeight: parseFloat(data.targetWeight),
+        bodyType: data.bodyType,
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      if (data.weight) {
+        await docRef.collection("logs").doc(today).set({
+          date: today,
+          weight: parseFloat(data.weight),
+          bmi: parseFloat(newBmi)
+        });
+      }
+    };
+    
+    const handleChange = (field, value) => {
+        setLocalData(prev => ({ ...prev, [field]: value }));
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+            handleSave();
+        }, 1500);
+    };
+
+    const handleSave = async () => {
+      if (isSaving) return;
+      setIsSaving(true);
+      try {
+        await saveDataToFirestore(localData);
+        setToast({ message: "데이터가 성공적으로 저장되었습니다. ✅", type: "success" });
+      } catch (e) {
+        console.error("Save failed:", e);
+        setToast({ message: "데이터 저장 실패. 다시 시도해주세요. ❌", type: "error" });
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    // BMI 계산 (NaN 방지)
+    const heightM = baseData.height && baseData.height > 0 ? baseData.height / 100 : null;
+    const currentBmi =
+      heightM && localData.weight && localData.weight > 0
+        ? localData.weight / (heightM * heightM)
+        : 0;
+    const targetBmi =
+      heightM && localData.targetWeight
+        ? localData.targetWeight / (heightM * heightM)
+        : 0;
+    const bmiDifference = targetBmi ? targetBmi - currentBmi : null;
+
+    // BMI 상태 카테고리
+    const getBmiCategory = (bmi) => {
+      if (!bmi || bmi <= 0) return { text: '미입력', icon: '❔', color: '#999' };
+      if (bmi < 18.5) return { text: '저체중', icon: '📉', color: '#4facfe' };
+      if (bmi < 25) return { text: '정상', icon: '✅', color: '#43e97b' };
+      if (bmi < 30) return { text: '과체중', icon: '⚠️', color: '#feca57' };
+      return { text: '비만', icon: '🔴', color: '#ff6b6b' };
+    };
+    const bmiCategory = getBmiCategory(currentBmi);
+
+    // 진행률 계산 (0~100 사이로 제한)
+    const initialWeight = baseData.weight;
+    const targetWeight = localData.targetWeight;
+    const currentWeight = localData.weight;
+    let progress = 0;
+    if (targetWeight && initialWeight && initialWeight !== targetWeight) {
+      progress = ((currentWeight - initialWeight) / (targetWeight - initialWeight)) * 100;
+    }
+    progress = Math.min(100, Math.max(0, progress));
+
+    return (
+      <div className="glassmorphism rounded-3xl p-6 card-hover fade-in">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-4">
+            <div className="text-6xl hover:scale-110 transition-transform cursor-pointer">
+              {baseData.emoji}
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-1">{baseData.name}</h2>
+              <div className="flex flex-wrap gap-2 text-xs mt-2">
+                <span className="bg-white/10 px-2 py-1 rounded-full text-white/80">
+                  <i className="fas fa-birthday-cake mr-1"></i>{baseData.age}세
+                </span>
+                <span className="bg-white/10 px-2 py-1 rounded-full text-white/80">
+                  <i className="fas fa-ruler-vertical mr-1"></i>{baseData.height}cm
+                </span>
+                <span className="bg-white/10 px-2 py-1 rounded-full text-white/80">
+                  <i className="fas fa-briefcase mr-1"></i>{baseData.profession}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* BMI Status */}
+        <div className="grid grid-cols-2 gap-6 mb-6">
+          <div className="text-center">
+            <CircularProgress 
+              value={currentBmi} 
+              maxValue={35} 
+              color={bmiCategory.color}
+            />
+            <p className="text-white/80 text-sm mt-3 font-medium">현재 BMI</p>
+          </div>
+          <div className="space-y-3">
+            <div className={`${bmiCategory.class} rounded-xl p-4 text-center`}>
+              <div className="text-white font-bold text-lg mb-1">
+                {bmiCategory.icon} {bmiCategory.text}
+              </div>
+              <div className="text-white/90 text-sm">BMI {currentBmi.toFixed(1)}</div>
+            </div>
+            {targetBmi > 0 && (
+              <div className="bg-white/10 rounded-xl p-3 text-center">
+                <div className="text-white/80 text-sm">목표: {targetBmi.toFixed(1)}</div>
+                <div className="text-white/60 text-xs">
+                  {bmiDifference > 0 ? '↑' : '↓'} {Math.abs(bmiDifference).toFixed(1)}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <button 
+          onClick={() => setShowDetails(!showDetails)}
+          className="w-full py-3 bg-white/20 text-white font-semibold rounded-2xl mb-4 hover:bg-white/30 transition-all transform hover:scale-105"
+        >
+          {showDetails ? (
+            <span><i className="fas fa-chevron-up mr-2"></i>접기</span>
+          ) : (
+            <span><i className="fas fa-chevron-down mr-2"></i>상세 보기</span>
+          )}
+        </button>
+
+        {/* Details */}
+        {showDetails && (
+          <div className="space-y-6 slide-up">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
+                  <i className="fas fa-weight-scale mr-2"></i>초기 체중 (kg)
+                </label>
+                <p className="w-full p-3 bg-white/10 rounded-xl text-white/80 backdrop-blur-sm">
+                  {initialWeight} kg
+                </p>
+              </div>
+              <div>
+                <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
+                  <i className="fas fa-bullseye mr-2"></i>목표 체중 (kg)
+                </label>
+                <input 
+                  type="number" 
+                  value={localData.targetWeight || ''} 
+                  onChange={e => handleChange('targetWeight', e.target.value)} 
+                  step="0.1" 
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+                  placeholder="목표 체중"
+                />
+              </div>
+              <div>
+                <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
+                  <i className="fas fa-weight-hanging mr-2"></i>현재 체중 (kg)
+                </label>
+                <input 
+                  type="number" 
+                  value={localData.weight || ''} 
+                  onChange={e => handleChange('weight', e.target.value)} 
+                  step="0.1" 
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+                  placeholder="체중 입력"
+                />
+              </div>
+              <div>
+                <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
+                  <i className="fas fa-percentage mr-2"></i>목표 진행률 (%)
+                </label>
+                <p className="w-full p-3 bg-white/10 rounded-xl text-white backdrop-blur-sm">
+                  {progress.toFixed(1)} %
+                </p>
+              </div>
+              <div>
+                  <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
+                    <i className="fas fa-dumbbell mr-2"></i>체형
+                  </label>
+                  <select 
+                    value={localData.bodyType || '보통'} 
+                    onChange={e => handleChange('bodyType', e.target.value)} 
+                    className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+                  >
+                    <option value="보통">보통</option>
+                    <option value="근육형">근육형</option>
+                    <option value="마른 비만">마른 비만</option>
+                    <option value="마른 체형">마른 체형</option>
+                    <option value="과체중">과체중</option>
+                  </select>
+              </div>
+            </div>
+
+            {/* AI Insights */}
+            <HealthInsights memberData={localData} baseData={baseData} />
+
+            {/* Save Button */}
+            <button 
+              onClick={handleSave} 
+              disabled={isSaving}
+              className="w-full py-4 bg-gradient-to-r from-green-400 to-blue-500 text-white font-bold rounded-2xl neon-glow hover:from-green-500 hover:to-blue-600 disabled:opacity-50 transition-all transform hover:scale-105"
+            >
+              {isSaving ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                  <span>저장 중...</span>
+                </div>
+              ) : (
+                <span>
+                  <i className="fas fa-save mr-2"></i>
+                  데이터 저장하기
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Main App Component
   const App = () => {
     const [hasAccess, setHasAccess] = useState(false);
     const [data, setData] = useState(initialFamilyData);
-    const [logs, setLogs] = useState({});
+    const [authReady, setAuthReady] = useState(false);
+    const [toast, setToast] = useState(null);
 
     // Firestore 실시간 데이터
     useEffect(() => {
@@ -119,515 +498,159 @@
       return () => unsub();
     }, []);
 
-    // Firestore 로그 불러오기
     useEffect(() => {
-      Object.keys(initialFamilyData).forEach(id => {
-        db.collection("family").doc(id).collection("logs").orderBy("date").onSnapshot(snap => {
-          const entries = [];
-          snap.forEach(doc => entries.push(doc.data()));
-          setLogs(prev => ({
-            ...prev,
-            [id]: { name: initialFamilyData[id].name, color: pickColor(id), entries }
-          }));
-        });
-      });
-    }, []);
-
-    const pickColor = (id) => {
-      const colors = { dad: "#00f2fe", mom: "#f5576c", daughter: "#ffb400", son: "#9b59b6" };
-      return colors[id] || "#ccc";
-    };
-
-    // ✅ Firestore 업데이트 + 로그 저장
-    const updateData = async (id, updates) => {
-      const base = data[id] || initialFamilyData[id];
-      const currentWeight = updates.weight ?? base.weight;
-      const targetWeight = updates.targetWeight ?? base.targetWeight;
-      const height = updates.height ?? base.height;
-
-      await db.collection("family").doc(id).set({ weight: currentWeight, targetWeight, height }, { merge: true });
-
-      if (updates.weight) {
-        const bmi = (currentWeight / ((height/100) ** 2)).toFixed(1);
-        const today = new Date().toISOString().split("T")[0];
-        await db.collection("family").doc(id).collection("logs").doc(today).set({
-          date: today,
-          weight: currentWeight,
-          bmi: parseFloat(bmi)
-        });
+      if (toast) {
+        const timer = setTimeout(() => setToast(null), 3000);
+        return () => clearTimeout(timer);
       }
-    };
-
-    if (!hasAccess) return <PasswordGate onAccess={setHasAccess} />;
-
+    }, [toast]);
+    
+    if (!hasAccess) {
+      return <PasswordGate onAccess={setHasAccess} />;
+    }
+    
     return (
-      <div className="min-h-screen p-6">
-        <header className="text-center py-8">
-          <h1 className="text-4xl font-extrabold mb-2 gradient-text">수아동혁가족 BMI 대시보드</h1>
-          <p className="text-lg text-white/80">실시간 저장 + 목표 달성률 + 이력 추적</p>
-        </header>
-
-        {/* 가족 카드 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {Object.values(data).map(member => (
-            <div key={member.id} className="glassmorphism p-4 rounded-xl">
-              <h3 className="text-xl font-bold mb-2">{member.name}</h3>
-              <p>키: {member.height} cm</p>
-              <p>현재 체중: {member.weight} kg</p>
-              <p>목표 체중: {member.targetWeight} kg</p>
-              <input type="number" className="w-full mt-2 p-2 text-black rounded"
-                placeholder="체중 입력 후 Enter"
-                onKeyDown={e => { if(e.key==="Enter") updateData(member.id,{weight:parseFloat(e.target.value)}) }}
-              />
-              <input type="number" className="w-full mt-2 p-2 text-black rounded"
-                placeholder="목표 체중 입력 후 Enter"
-                onKeyDown={e => { if(e.key==="Enter") updateData(member.id,{targetWeight:parseFloat(e.target.value)}) }}
-              />
-              <input type="number" className="w-full mt-2 p-2 text-black rounded"
-                placeholder="키 입력 후 Enter"
-                onKeyDown={e => { if(e.key==="Enter") updateData(member.id,{height:parseFloat(e.target.value)}) }}
-              />
+      <div className="min-h-screen animated-bg">
+        {toast && <ToastMessage message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+        <div className="p-4 md:p-8 lg:p-12 text-white">
+          <header className="text-center py-8">
+            <h1 className="text-5xl md:text-6xl font-extrabold mb-2 gradient-text">
+              Ultimate Health Dashboard
+            </h1>
+            <p className="text-lg md:text-xl font-medium text-white/80">
+              <i className="fas fa-heartbeat mr-2 pulse"></i> 우리 가족 건강 관리
+            </p>
+          </header>
+          <div className="fade-in">
+            <div className="grid gap-8 mb-12 lg:grid-cols-2 xl:grid-cols-4">
+              {Object.keys(data).map(id => (
+                <FamilyMember
+                  key={id}
+                  memberData={data[id]}
+                  onUpdate={() => {}} // Placeholder, logic is in handleSave
+                  baseData={initialFamilyData[id]}
+                  setToast={setToast}
+                />
+              ))}
             </div>
-          ))}
-        </div>
-
-        {/* BMI 이력 그래프 */}
-        <div className="w-full h-[400px] glassmorphism p-4 rounded-3xl mb-8">
-          <h2 className="text-2xl font-bold mb-2">📈 가족 BMI 변화 추세</h2>
-          <HistoryChart logs={logs} />
+            <div className="w-full h-[400px] glassmorphism p-4 rounded-3xl">
+              <AdvancedBMIChart familyHealthData={data} />
+            </div>
+          </div>
+          <footer className="text-center text-white/50 text-sm mt-12 py-4 border-t border-white/20">
+            © 2025. 수아동혁가족. All Rights Reserved.
+          </footer>
         </div>
       </div>
     );
   };
 
-  createRoot(document.getElementById("root")).render(<App />);
-</script>
-</body>
-</html> type="number" className="w-full mt-2 p-2 text-black rounded"
-                placeholder="키 입력 후 Enter"
-                onKeyDown={e => { if(e.key==="Enter") updateData(member.id,{height:parseFloat(e.target.value)}) }}
-              />
-            </div>
-          ))}
-        </div>
+  // Chart.js Component
+  const AdvancedBMIChart = ({ familyHealthData }) => {
+    const canvasRef = useRef(null);
+    const chartRef = useRef(null);
 
-        {/* BMI 이력 그래프 */}
-        <div className="w-full h-[400px] glassmorphism p-4 rounded-3xl mb-8">
-          <h2 className="text-2xl font-bold mb-2">📈 가족 BMI 변화 추세</h2>
-          <HistoryChart logs={logs} />
-        </div>
+    useEffect(() => {
+      if (!familyHealthData || Object.keys(familyHealthData).length === 0) return;
+      
+      const ctx = canvasRef.current.getContext('2d');
+      
+      if (chartRef.current) {
+          chartRef.current.destroy();
+      }
 
-        <footer className="text-center text-white/50 text-sm mt-12 py-4 border-t border-white/20">
-          © 2025. 수아동혁가족. All Rights Reserved.
-        </footer>
-      </div>
-    );
-  };
+      const labels = Object.values(familyHealthData).map(member => member.name);
+      const currentBmis = Object.values(familyHealthData).map(member => {
+        const heightM = initialFamilyData[member.id].height / 100;
+        return member.weight ? (member.weight / (heightM * heightM)) : 0;
+      });
+      const targetBmis = Object.values(initialFamilyData).map(member => member.recommendedBMI);
+      
+      chartRef.current = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: '현재 BMI',
+            data: currentBmis,
+            backgroundColor: [
+              'rgba(75, 192, 192, 0.6)', 
+              'rgba(255, 159, 64, 0.6)', 
+              'rgba(54, 162, 235, 0.6)', 
+              'rgba(153, 102, 255, 0.6)'
+            ],
+            borderColor: [
+              'rgba(75, 192, 192, 1)', 
+              'rgba(255, 159, 64, 1)', 
+              'rgba(54, 162, 235, 1)', 
+              'rgba(153, 102, 255, 1)'
+            ],
+            borderWidth: 1
+          },
+          {
+            label: '목표 BMI',
+            data: targetBmis,
+            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+            borderColor: 'rgba(255, 255, 255, 0.8)',
+            borderWidth: 2,
+            type: 'line',
+            fill: false,
+            datalabels: {
+              display: false
+            }
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: { color: 'white' }
+            },
+            title: {
+              display: true,
+              text: '가족 BMI 추이',
+              color: 'white',
+              font: { size: 18, family: 'Noto Sans KR' }
+            },
+            datalabels: {
+              color: 'white',
+              anchor: 'end',
+              align: 'top',
+              formatter: (value) => value.toFixed(1)
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: 'white' },
+              grid: { color: 'rgba(255, 255, 255, 0.2)' }
+            },
+            y: {
+              ticks: { color: 'white' },
+              grid: { color: 'rgba(255, 255, 255, 0.2)' },
+              min: 15, max: 35
+            }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
 
-  createRoot(document.getElementById("root")).render(<App />);
-</script>
-</body>
-</html>(member.bmi)}`}>{bmiCategory(member.bmi)}</span>
-          </div>
-          <div className="text-sm text-gray-400">
-            <p>현재 체중: {member.currentWeight ? `${member.currentWeight} kg` : '미입력'}</p>
-            <p>초기 체중: {member.initialWeight ? `${member.initialWeight} kg` : '미입력'}</p>
-            <p>목표 체중: {member.targetWeight ? `${member.targetWeight} kg` : '미입력'}</p>
-          </div>
-          <div className="mt-2 text-sm">
-            <p>체중 변화: {weightChange.toFixed(1)} kg</p>
-            <p>목표 달성률: {progress.toFixed(1)}%</p>
-          </div>
-          <div className="w-full h-2 bg-gray-600 rounded-full mt-2 overflow-hidden">
-            <div className={`h-full ${progressClass}`} style={{ width: `${Math.min(100, progress)}%` }}></div>
-          </div>
-        </div>
-      );
-    };
-
-    const BmiChart = ({ data }) => {
-      const chartRef = useRef(null);
-      const canvasRef = useRef(null);
-
-      useEffect(() => {
+      return () => {
         if (chartRef.current) {
           chartRef.current.destroy();
         }
+      };
+    }, [familyHealthData]);
 
-        const labels = data.map(m => m.name);
-        const bmiData = data.map(m => m.bmi);
-        const targetData = data.map(m => m.targetWeight);
-        const currentData = data.map(m => m.currentWeight);
-        const initialData = data.map(m => m.initialWeight);
-        const progressData = data.map(m => {
-          if (!m.initialWeight || !m.targetWeight || !m.currentWeight) return 0;
-          return ((m.initialWeight - m.currentWeight) / (m.initialWeight - m.targetWeight)) * 100;
-        });
-
-        const ctx = canvasRef.current.getContext('2d');
-        chartRef.current = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: labels,
-            datasets: [
-              {
-                label: '현재 체중',
-                data: currentData,
-                backgroundColor: '#3b82f6',
-                borderColor: '#3b82f6',
-                borderWidth: 1,
-                order: 2,
-              },
-              {
-                label: '목표 체중',
-                data: targetData,
-                backgroundColor: '#ef4444',
-                borderColor: '#ef4444',
-                borderWidth: 1,
-                order: 2,
-              },
-              {
-                label: '초기 체중',
-                data: initialData,
-                backgroundColor: '#6b7280',
-                borderColor: '#6b7280',
-                borderWidth: 1,
-                order: 2,
-              },
-              {
-                label: '목표 달성률 (%)',
-                data: progressData,
-                type: 'line',
-                fill: false,
-                borderColor: '#4ade80',
-                tension: 0.1,
-                pointRadius: 5,
-                yAxisID: 'progress-y-axis',
-                order: 1,
-                datalabels: {
-                  color: '#4ade80',
-                  anchor: 'end',
-                  align: 'top',
-                  formatter: (value) => value.toFixed(1) + '%'
-                }
-              }
-            ],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                labels: { color: 'white' }
-              },
-              title: {
-                display: true,
-                text: '가족 건강 대시보드',
-                color: 'white',
-                font: { size: 18, family: 'Inter' }
-              },
-              datalabels: {
-                color: 'white',
-                anchor: 'end',
-                align: 'top',
-                formatter: (value, context) => {
-                  const datasetLabel = context.dataset.label;
-                  if (datasetLabel === '목표 달성률 (%)') {
-                    return `${value.toFixed(1)}%`;
-                  }
-                  return '';
-                }
-              }
-            },
-            scales: {
-              x: {
-                ticks: { color: 'white' },
-                grid: { color: 'rgba(255, 255, 255, 0.2)' }
-              },
-              y: {
-                ticks: { color: 'white' },
-                grid: { color: 'rgba(255, 255, 255, 0.2)' },
-                title: {
-                  display: true,
-                  text: '체중 (kg)',
-                  color: 'white'
-                }
-              },
-              'progress-y-axis': {
-                position: 'right',
-                min: 0,
-                max: 100,
-                ticks: { color: 'white' },
-                grid: { display: false },
-                title: {
-                  display: true,
-                  text: '달성률 (%)',
-                  color: 'white'
-                }
-              }
-            }
-          },
-          plugins: [ChartDataLabels]
-        });
-
-        return () => {
-          if (chartRef.current) {
-            chartRef.current.destroy();
-          }
-        };
-      }, [data]);
-
-      return <canvas ref={canvasRef} />;
-    };
-
-    const MainAppView = () => (
-      <div className="p-4 sm:p-8">
-        <h1 className="text-3xl sm:text-4xl font-bold text-center mb-6">가족 건강 대시보드</h1>
-        <p className="text-center text-sm text-gray-400 mb-8">
-          클릭하여 체중 정보를 업데이트하세요
-        </p>
-
-        {currentMember && (
-          <div className="card mb-6">
-            <h2 className="text-xl font-semibold mb-2">나의 정보</h2>
-            <p>이름: {currentMember.name || '미입력'}</p>
-            <p>현재 체중: {currentMember.currentWeight ? `${currentMember.currentWeight} kg` : '미입력'}</p>
-            <p>초기 체중: {currentMember.initialWeight ? `${currentMember.initialWeight} kg` : '미입력'}</p>
-            <p>목표 체중: {currentMember.targetWeight ? `${currentMember.targetWeight} kg` : '미입력'}</p>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {familyHealthData.length > 0 ? (
-            familyHealthData.map(member => (
-              <MemberCard key={member.name} member={member} onClick={handleCardClick} />
-            ))
-          ) : (
-            <div className="col-span-4 text-center text-gray-400">
-              <p>데이터가 없습니다. 첫 번째 데이터를 입력해주세요.</p>
-            </div>
-          )}
-        </div>
-
-        <div className="chart-container">
-          <BmiChart data={familyHealthData} />
-        </div>
-
-        {isInputModalOpen && (
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <h3 className="text-xl font-bold mb-4">{selectedMember.name}님 데이터 입력</h3>
-              <label className="block text-left text-sm mb-2">
-                현재 체중 (kg)
-                <input
-                  type="number"
-                  className="input-field mt-1"
-                  value={inputWeight}
-                  onChange={(e) => setInputWeight(e.target.value)}
-                  placeholder="체중"
-                />
-              </label>
-              <label className="block text-left text-sm mb-2">
-                키 (cm)
-                <input
-                  type="number"
-                  className="input-field mt-1"
-                  value={inputHeight}
-                  onChange={(e) => setInputHeight(e.target.value)}
-                  placeholder="키"
-                />
-              </label>
-              <label className="block text-left text-sm mb-4">
-                목표 체중 (kg)
-                <input
-                  type="number"
-                  className="input-field mt-1"
-                  value={inputTargetWeight}
-                  onChange={(e) => setInputTargetWeight(e.target.value)}
-                  placeholder="목표 체중"
-                />
-              </label>
-              <div className="flex justify-end gap-2">
-                <button onClick={() => setIsInputModalOpen(false)} className="btn bg-gray-600">취소</button>
-                <button onClick={handleSave} className="btn bg-green-500">저장</button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-
-    const MainApp = () => {
-        return (
-            <div>
-                {isAuthenticated ? <MainAppView /> : <PasswordScreen />}
-            </div>
-        );
-    };
-    
-    // 이 부분이 올바른 실행을 보장합니다.
-    const rootElement = document.getElementById('root');
-    if (rootElement) {
-      createRoot(rootElement).render(<MainApp />);
-    } else {
-      console.error("Root element not found.");
-    }
+    return <canvas ref={canvasRef} />;
   };
+
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<App />);
 </script>
 </body>
-</html>ole.error('Save failed:', e);
-          setToast({ message: "데이터 저장 실패. 다시 시도해주세요. ❌", type: "error" });
-        } finally {
-          setIsSaving(false);
-        }
-      };
-
-      const heightM = baseData.height / 100;
-      const currentBmi = localData.weight && localData.weight > 0 ? (localData.weight / (heightM * heightM)) : 0;
-      const targetBmi = localData.targetWeight ? (localData.targetWeight / (heightM * heightM)) : 0;
-      const bmiDifference = targetBmi ? (targetBmi - currentBmi) : null;
-      
-      const getBmiCategory = (bmi) => {
-        if (bmi < 18.5) return { text: '저체중', class: 'bmi-excellent', icon: '📉', color: '#4facfe' };
-        if (bmi < 25) return { text: '정상', class: 'bmi-good', icon: '✅', color: '#43e97b' };
-        if (bmi < 30) return { text: '과체중', class: 'bmi-warning', icon: '⚠️', color: '#feca57' };
-        return { text: '비만', class: 'bmi-danger', icon: '🔴', color: '#ff6b6b' };
-      };
-
-      const bmiCategory = getBmiCategory(currentBmi);
-
-      // Calculate progress percentage
-      const initialWeight = baseData.weight;
-      const targetWeight = localData.targetWeight;
-      const currentWeight = localData.weight;
-      let progress = 0;
-      if (targetWeight && initialWeight !== targetWeight) {
-        progress = ((currentWeight - initialWeight) / (targetWeight - initialWeight)) * 100;
-      }
-      progress = Math.min(100, Math.max(0, progress));
-
-      return (
-        <div className="glassmorphism rounded-3xl p-6 card-hover fade-in">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-4">
-              <div className="text-6xl hover:scale-110 transition-transform cursor-pointer">
-                {baseData.emoji}
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-white mb-1">{baseData.name}</h2>
-                <p className="text-white/70 text-sm mb-2">{baseData.desc}</p>
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <span className="bg-white/10 px-2 py-1 rounded-full text-white/80">
-                    <i className="fas fa-birthday-cake mr-1"></i>{baseData.age}세
-                  </span>
-                  <span className="bg-white/10 px-2 py-1 rounded-full text-white/80">
-                    <i className="fas fa-ruler-vertical mr-1"></i>{baseData.height}cm
-                  </span>
-                  <span className="bg-white/10 px-2 py-1 rounded-full text-white/80">
-                    <i className="fas fa-briefcase mr-1"></i>{baseData.profession}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* BMI Status */}
-          <div className="grid grid-cols-2 gap-6 mb-6">
-            <div className="text-center">
-              <CircularProgress 
-                value={currentBmi} 
-                maxValue={35} 
-                color={bmiCategory.color}
-              />
-              <p className="text-white/80 text-sm mt-3 font-medium">현재 BMI</p>
-            </div>
-            <div className="space-y-3">
-              <div className={`${bmiCategory.class} rounded-xl p-4 text-center sparkle`}>
-                <div className="text-white font-bold text-lg mb-1">
-                  {bmiCategory.icon} {bmiCategory.text}
-                </div>
-                <div className="text-white/90 text-sm">BMI {currentBmi.toFixed(1)}</div>
-              </div>
-              {targetBmi > 0 && (
-                <div className="bg-white/10 rounded-xl p-3 text-center">
-                  <div className="text-white/80 text-sm">목표: {targetBmi.toFixed(1)}</div>
-                  <div className="text-white/60 text-xs">
-                    {bmiDifference > 0 ? '↑' : '↓'} {Math.abs(bmiDifference).toFixed(1)}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-           <button 
-                onClick={() => setShowDetails(!showDetails)}
-                className="w-full py-3 bg-white/20 text-white font-semibold rounded-2xl mb-4 hover:bg-white/30 transition-all transform hover:scale-105"
-            >
-                {showDetails ? (
-                  <span><i className="fas fa-chevron-up mr-2"></i>접기</span>
-                ) : (
-                  <span><i className="fas fa-chevron-down mr-2"></i>상세 보기</span>
-                )}
-            </button>
-
-          {/* Details */}
-          {showDetails && (
-            <div className="space-y-6 slide-up">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
-                    <i className="fas fa-weight-scale mr-2"></i>초기 체중 (kg)
-                  </label>
-                  <p className="w-full p-3 bg-white/10 rounded-xl text-white/80 backdrop-blur-sm">
-                    {initialWeight} kg
-                  </p>
-                </div>
-                <div>
-                  <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
-                    <i className="fas fa-bullseye mr-2"></i>목표 체중 (kg)
-                  </label>
-                  <input 
-                    type="number" 
-                    value={localData.targetWeight || ''} 
-                    onChange={e => handleChange('targetWeight', e.target.value)} 
-                    step="0.1" 
-                    className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
-                    placeholder="목표 체중"
-                  />
-                </div>
-                <div>
-                  <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
-                    <i className="fas fa-weight-hanging mr-2"></i>현재 체중 (kg)
-                  </label>
-                  <input 
-                    type="number" 
-                    value={localData.weight || ''} 
-                    onChange={e => handleChange('weight', e.target.value)} 
-                    step="0.1" 
-                    className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
-                    placeholder="체중 입력"
-                  />
-                </div>
-                <div>
-                  <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
-                    <i className="fas fa-percentage mr-2"></i>목표 진행률 (%)
-                  </label>
-                  <p className="w-full p-3 bg-white/10 rounded-xl text-white backdrop-blur-sm">
-                    {progress.toFixed(1)} %
-                  </p>
-                </div>
-                <div>
-                    <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
-                      <i className="fas fa-dumbbell mr-2"></i>체형
-                    </label>
-                    <select 
-                      value={localData.bodyType || '보통'} 
-                      onChange={e => handleChange('bodyType', e.target.value)} 
-                      className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
-                    >
-                      <option value="보통">보통</option>
-                      <option value="근육형">근육형</option>
-                      <option value="마른 비만">마른 비만</option>
+</html>
+비만</option>
                       <option value="마른 체형">마른 체형</option>
                       <option value="과체중">과체중</option>
                     </select>

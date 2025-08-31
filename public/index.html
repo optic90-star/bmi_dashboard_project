@@ -3,94 +3,355 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>수아동혁가족 BMI 비교UI대시보드AI - 가족전용</title>
+  <title>수아동혁가족 Ultimate BMI Dashboard 2.0</title>
   <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  
   <style>
-    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
-    .bg-blue-50, .bg-blue-100 { background-color: #eff6ff; }
-    .bg-green-50, .bg-green-100 { background-color: #ecfdf5; }
-    .bg-yellow-50, .bg-yellow-100 { background-color: #fffbeb; }
-    .bg-red-50, .bg-red-100 { background-color: #fef2f2; }
-    .bg-blue-50.dark, .bg-blue-100.dark { background-color: #172554; }
-    .bg-green-50.dark, .bg-green-100.dark { background-color: #064e3b; }
-    .bg-yellow-50.dark, .bg-yellow-100.dark { background-color: #53450e; }
-    .bg-red-50.dark, .bg-red-100.dark { background-color: #7f1d1d; }
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body { 
+      font-family: 'Noto Sans KR', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .animated-bg {
+      background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c);
+      background-size: 400% 400%;
+      animation: gradientMove 15s ease infinite;
+    }
+
+    @keyframes gradientMove {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .glassmorphism {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+    }
+
+    .card-hover {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .card-hover:hover {
+      transform: translateY(-10px) scale(1.02);
+      box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+    }
+
+    .neon-glow {
+      box-shadow: 0 0 20px rgba(102, 126, 234, 0.6),
+                  0 0 40px rgba(102, 126, 234, 0.4),
+                  0 0 60px rgba(102, 126, 234, 0.2);
+    }
+
+    .pulse { animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .float { animation: float 6s ease-in-out infinite; }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+    }
+
+    .sparkle {
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .sparkle::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+      animation: sparkle 3s infinite;
+    }
+
+    @keyframes sparkle {
+      0% { left: -100%; }
+      100% { left: 100%; }
+    }
+
+    .gradient-text {
+      background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #feca57);
+      background-size: 300% 300%;
+      animation: gradientText 3s ease-in-out infinite;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    @keyframes gradientText {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    .bmi-excellent { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .bmi-good { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+    .bmi-warning { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+    .bmi-danger { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); }
+
+    .progress-circle {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: conic-gradient(#4facfe 0deg, #4facfe var(--progress), rgba(255,255,255,0.2) var(--progress));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .progress-circle::before {
+      content: '';
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.9);
+      position: absolute;
+    }
+
+    .progress-value {
+      position: relative;
+      z-index: 1;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .fade-in {
+      animation: fadeIn 0.6s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .slide-up {
+      animation: slideUp 0.5s ease-out;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 768px) {
+      .glassmorphism {
+        backdrop-filter: blur(10px);
+      }
+      .card-hover:hover {
+        transform: translateY(-5px) scale(1.01);
+      }
+    }
   </style>
-  <script>
-    const __firebase_config = '{"apiKey":"YOUR_API_KEY","authDomain":"YOUR_AUTH_DOMAIN","projectId":"YOUR_PROJECT_ID","storageBucket":"YOUR_STORAGE_BUCKET","messagingSenderId":"YOUR_MESSAGING_SENDER_ID","appId":"YOUR_APP_ID"}';
-    const FAMILY_PASSWORD = "1115";
-  </script>
 </head>
-<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+
+<body class="animated-bg">
   <div id="root"></div>
 
-  <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-    import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-    import { getFirestore, doc, setDoc, onSnapshot, collection } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
-
-    window.firebaseRuntime = { initializeApp, getAuth, signInAnonymously, getFirestore, doc, setDoc, onSnapshot, collection };
-
-    window.initFirebaseApp = function() {
-      if (typeof __firebase_config === 'undefined') return null;
-      let cfg;
-      try { cfg = JSON.parse(__firebase_config); } catch(e) { console.error('Firebase config JSON 파싱 실패:', e); return null; }
-      try { return initializeApp(cfg); } catch(e) { console.error('Firebase 초기화 실패:', e); return null; }
-    };
-  </script>
-
   <script type="text/babel">
-    const { useState, useEffect, useRef } = React;
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    const FAMILY_PASSWORD = "1115";
 
     const initialFamilyData = {
-      dad: { id: 'dad', name: '민철', emoji: '👨‍🦳', dob: '1971-05-05', height: 178, weight: 95, age: 54, desc: '백발, 현재 집에만 계심', recommendedWeight: 79.2, recommendedBMI: 25 },
-      mom: { id: 'mom', name: '선영', emoji: '👩‍💼', dob: '1970-11-15', height: 177, weight: 75, age: 54, desc: '국민은행 부지점장, 통뼈', recommendedWeight: 72.1, recommendedBMI: 23 },
-      daughter: { id: 'daughter', name: '수아', emoji: '🏀', dob: '2005-01-09', height: 171, weight: 71, age: 20, desc: '한국체대 3학년, 농구 주전 센터', recommendedWeight: 70.2, recommendedBMI: 24 },
-      son: { id: 'son', name: '동혁', emoji: '✈️', dob: '2007-02-19', height: 187, weight: 71, age: 18, desc: '고3 수험생, 스튜어드 희망', recommendedWeight: 76.9, recommendedBMI: 22 }
+      dad: { 
+        id: 'dad', name: '민철', emoji: '👨‍🦳', dob: '1971-05-05', height: 178, weight: 95, age: 54, 
+        desc: '백발, 현재 집에만 계심', recommendedWeight: 79.2, recommendedBMI: 25,
+        profession: '휴식중', healthGoal: '체중감량', activityLevel: 'low'
+      },
+      mom: { 
+        id: 'mom', name: '선영', emoji: '👩‍💼', dob: '1970-11-15', height: 177, weight: 75, age: 54, 
+        desc: '국민은행 부지점장, 통뼈', recommendedWeight: 72.1, recommendedBMI: 23,
+        profession: '은행원', healthGoal: '건강유지', activityLevel: 'medium'
+      },
+      daughter: { 
+        id: 'daughter', name: '수아', emoji: '🏀', dob: '2005-01-09', height: 171, weight: 71, age: 20, 
+        desc: '한국체대 3학년, 농구 주전 센터', recommendedWeight: 70.2, recommendedBMI: 24,
+        profession: '학생-체육', healthGoal: '근력증가', activityLevel: 'high'
+      },
+      son: { 
+        id: 'son', name: '동혁', emoji: '✈️', dob: '2007-02-19', height: 187, weight: 71, age: 18, 
+        desc: '고3 수험생, 스튜어드 희망', recommendedWeight: 76.9, recommendedBMI: 22,
+        profession: '학생-고3', healthGoal: '체중증가', activityLevel: 'low'
+      }
     };
 
+    // 패스워드 게이트 컴포넌트
     const PasswordGate = ({ onAccess }) => {
       const [input, setInput] = useState("");
       const [error, setError] = useState("");
+      const [isLoading, setIsLoading] = useState(false);
 
-      const handleSubmit = (e) => {
+      const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsLoading(true);
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
         if (input === FAMILY_PASSWORD) {
           onAccess(true);
         } else {
           setError("비밀번호가 틀렸습니다 ❌");
+          setIsLoading(false);
         }
       };
 
       return (
-        <div className="h-screen flex items-center justify-center bg-slate-200 dark:bg-slate-800">
-          <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-700 p-6 rounded-xl shadow-md space-y-4 w-80">
-            <h1 className="text-lg font-bold text-center text-slate-700 dark:text-slate-200">🔒 가족 전용 대시보드</h1>
-            <input type="password" placeholder="비밀번호 입력" value={input} onChange={e => setInput(e.target.value)} className="w-full p-2 border rounded-md" />
-            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-            <button type="submit" className="w-full p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">접속</button>
-          </form>
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="glassmorphism rounded-3xl p-8 w-full max-w-md float">
+            <div className="text-center mb-8">
+              <div className="text-7xl mb-6 pulse">🏠</div>
+              <h1 className="text-4xl font-bold text-white mb-3 gradient-text">가족 전용</h1>
+              <h2 className="text-xl text-white/80 font-medium">Ultimate Health Dashboard</h2>
+              <p className="text-white/60 text-sm mt-2">우리 가족만의 특별한 건강 관리 공간</p>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="relative group">
+                <i className="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-white/60 group-focus-within:text-white/80 transition-colors"></i>
+                <input 
+                  type="password" 
+                  placeholder="가족 비밀번호를 입력하세요" 
+                  value={input} 
+                  onChange={e => setInput(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+                  disabled={isLoading}
+                />
+              </div>
+              
+              {error && (
+                <div className="text-red-300 text-center bg-red-500/20 py-3 px-4 rounded-xl border border-red-400/30 fade-in">
+                  <i className="fas fa-exclamation-triangle mr-2"></i>
+                  {error}
+                </div>
+              )}
+              
+              <button 
+                type="submit" 
+                disabled={isLoading}
+                className="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-2xl sparkle hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 transition-all transform hover:scale-105 neon-glow"
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                    <span>인증 중...</span>
+                  </div>
+                ) : (
+                  <span><i className="fas fa-door-open mr-2"></i>입장하기</span>
+                )}
+              </button>
+            </form>
+            
+            <div className="text-center mt-6 text-white/50 text-sm">
+              <i className="fas fa-shield-alt mr-1"></i>
+              보안 연결로 보호됨
+            </div>
+          </div>
         </div>
       );
     };
 
-    function getCardBgByBMI(bmi) {
-      if (bmi < 18.5) return "bg-blue-50 dark";
-      if (bmi < 25) return "bg-green-50 dark";
-      if (bmi < 30) return "bg-yellow-50 dark";
-      return "bg-red-50 dark";
-    }
+    // BMI 진행률 원형 차트
+    const CircularProgress = ({ value, maxValue, size = 120, color = "#4facfe" }) => {
+      const percentage = Math.min((value / maxValue) * 100, 100);
+      const degrees = (percentage / 100) * 360;
+      
+      return (
+        <div 
+          className="progress-circle" 
+          style={{ '--progress': `${degrees}deg` }}
+        >
+          <div className="progress-value text-xl font-bold">
+            {value.toFixed(1)}
+          </div>
+        </div>
+      );
+    };
 
+    // AI 건강 인사이트 컴포넌트
+    const HealthInsights = ({ memberData, baseData }) => {
+      const insights = useMemo(() => {
+        const heightM = baseData.height / 100;
+        const currentBmi = memberData.weight ? (memberData.weight / (heightM * heightM)) : 0;
+        const targetBmi = memberData.targetWeight ? (memberData.targetWeight / (heightM * heightM)) : 0;
+        const weightDiff = memberData.targetWeight ? (memberData.targetWeight - memberData.weight) : 0;
+        
+        const recommendations = [];
+        const tips = [];
+        
+        if (currentBmi < 18.5) {
+          recommendations.push("💪 체중 증가를 위한 근력 운동과 단백질 섭취를 늘려보세요");
+          tips.push("🥛 단백질 쉐이크, 견과류, 아보카도 등 고칼로리 건강식품 추천");
+        } else if (currentBmi > 25) {
+          recommendations.push("🏃‍♀️ 유산소 운동과 식단 조절로 건강한 체중 감량을 해보세요");
+          tips.push("🥗 주 3회 이상 운동, 저염식, 충분한 수분 섭취가 도움이 됩니다");
+        } else {
+          recommendations.push("✨ 현재 건강한 체중을 잘 유지하고 있어요!");
+          tips.push("🌟 꾸준한 운동과 균형잡힌 식단으로 현재 상태를 유지하세요");
+        }
+        
+        if (Math.abs(weightDiff) > 5) {
+          recommendations.push(`🎯 목표까지 ${Math.abs(weightDiff).toFixed(1)}kg, 월 1-2kg씩 ${weightDiff > 0 ? '증가' : '감소'}가 건강해요`);
+        }
+
+        // 활동량에 따른 추천
+        if (baseData.activityLevel === 'high') {
+          tips.push("⚡ 운동량이 많으니 충분한 휴식과 영양 보충이 중요해요");
+        } else if (baseData.activityLevel === 'low') {
+          tips.push("🚶‍♀️ 일일 만보 걷기부터 시작해보는 것은 어떨까요?");
+        }
+
+        return { currentBmi, targetBmi, weightDiff, recommendations, tips };
+      }, [memberData, baseData]);
+
+      return (
+        <div className="glassmorphism rounded-2xl p-4 mt-4 slide-up">
+          <h4 className="text-white font-semibold mb-3 flex items-center">
+            <i className="fas fa-brain mr-2 text-purple-300"></i>
+            AI 건강 인사이트
+          </h4>
+          <div className="space-y-3">
+            {insights.recommendations.map((rec, idx) => (
+              <div key={idx} className="text-white/90 text-sm bg-white/10 rounded-lg p-3 border-l-4 border-blue-400">
+                {rec}
+              </div>
+            ))}
+            {insights.tips.map((tip, idx) => (
+              <div key={idx} className="text-white/80 text-xs bg-white/5 rounded-lg p-2 border border-white/10">
+                {tip}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    // 가족 구성원 카드 컴포넌트
     const FamilyMember = ({ memberData, onUpdate, baseData }) => {
       const [localData, setLocalData] = useState(memberData);
       const [isSaving, setIsSaving] = useState(false);
       const [saveStatus, setSaveStatus] = useState('');
+      const [showDetails, setShowDetails] = useState(false);
 
       useEffect(() => setLocalData(memberData), [memberData]);
 
@@ -100,206 +361,448 @@
         setIsSaving(true);
         setSaveStatus('저장 중...');
         try {
-          const dataToSave = { ...localData, weight: Number(localData.weight), targetWeight: Number(localData.targetWeight) };
+          const dataToSave = { 
+            ...localData, 
+            weight: Number(localData.weight), 
+            targetWeight: Number(localData.targetWeight) 
+          };
           await onUpdate(dataToSave);
           setSaveStatus('저장 완료! ✅');
         } catch (e) {
           console.error('저장 실패:', e);
           setSaveStatus('저장 실패! ❌');
         } finally {
-          setTimeout(() => setSaveStatus(''), 2000);
+          setTimeout(() => setSaveStatus(''), 3000);
           setIsSaving(false);
         }
       };
 
       const heightM = baseData.height / 100;
-      const currentBmi = localData.weight && localData.weight > 0 ? (localData.weight / (heightM * heightM)).toFixed(2) : 'N/A';
-      let category = 'N/A';
-      if (currentBmi !== 'N/A') { category = currentBmi < 18.5 ? '저체중' : currentBmi < 25 ? '정상' : currentBmi < 30 ? '과체중' : '비만'; }
+      const currentBmi = localData.weight && localData.weight > 0 ? (localData.weight / (heightM * heightM)) : 0;
+      const targetBmi = localData.targetWeight ? (localData.targetWeight / (heightM * heightM)) : 0;
+      const bmiDifference = targetBmi - currentBmi;
+      
+      const getBmiCategory = (bmi) => {
+        if (bmi < 18.5) return { text: '저체중', class: 'bmi-excellent', icon: '📉', color: '#4facfe' };
+        if (bmi < 25) return { text: '정상', class: 'bmi-good', icon: '✅', color: '#43e97b' };
+        if (bmi < 30) return { text: '과체중', class: 'bmi-warning', icon: '⚠️', color: '#feca57' };
+        return { text: '비만', class: 'bmi-danger', icon: '🔴', color: '#ff6b6b' };
+      };
+
+      const bmiCategory = getBmiCategory(currentBmi);
+      const targetCategory = getBmiCategory(targetBmi);
 
       return (
-        <div className={`${getCardBgByBMI(Number(currentBmi))} rounded-xl shadow-lg p-6 space-y-4 transition-colors`}>
-          <div className="flex items-center space-x-3">
-            <span className="text-4xl">{baseData.emoji}</span>
-            <div>
-              <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{baseData.name} ({baseData.age}세)</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">{baseData.desc}</p>
+        <div className="glassmorphism rounded-3xl p-6 card-hover fade-in">
+          {/* 헤더 */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-4">
+              <div className="text-6xl hover:scale-110 transition-transform cursor-pointer">
+                {baseData.emoji}
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-1">{baseData.name}</h2>
+                <p className="text-white/70 text-sm mb-2">{baseData.desc}</p>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className="bg-white/10 px-2 py-1 rounded-full text-white/80">
+                    <i className="fas fa-birthday-cake mr-1"></i>{baseData.age}세
+                  </span>
+                  <span className="bg-white/10 px-2 py-1 rounded-full text-white/80">
+                    <i className="fas fa-ruler-vertical mr-1"></i>{baseData.height}cm
+                  </span>
+                  <span className="bg-white/10 px-2 py-1 rounded-full text-white/80">
+                    <i className="fas fa-briefcase mr-1"></i>{baseData.profession}
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="bg-indigo-50 dark:bg-indigo-900/50 p-3 rounded-lg text-center">
-            <p className="text-sm text-indigo-800 dark:text-indigo-200 font-semibold">현재 BMI: {currentBmi} ({category})</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold mb-1 text-slate-600 dark:text-slate-300">현재 체중 (kg):</label>
-              <input type="number" value={localData.weight || ''} onChange={e => handleChange('weight', e.target.value)} step="0.1" className="w-full p-2 border rounded-md" />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-1 text-slate-600 dark:text-slate-300">목표 체중 (kg):</label>
-              <input type="number" value={localData.targetWeight || ''} onChange={e => handleChange('targetWeight', e.target.value)} step="0.1" className="w-full p-2 border rounded-md" />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-1 text-slate-600 dark:text-slate-300">측정 날짜:</label>
-              <input type="date" value={localData.date || ''} onChange={e => handleChange('date', e.target.value)} className="w-full p-2 border rounded-md" />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-1 text-slate-600 dark:text-slate-300">체형 선택:</label>
-              <select value={localData.bodyType || 'normal'} onChange={e => handleChange('bodyType', e.target.value)} className="w-full p-2 border rounded-md">
-                <option value="normal">보통</option><option value="muscle">통뼈/근육형</option><option value="slim">마른 체형</option><option value="obese">비만 체형</option>
-              </select>
-            </div>
+            <button 
+              onClick={() => setShowDetails(!showDetails)}
+              className="text-white/60 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-full"
+            >
+              <i className={`fas ${showDetails ? 'fa-chevron-up' : 'fa-chevron-down'} text-xl`}></i>
+            </button>
           </div>
 
-          <button onClick={handleSave} disabled={isSaving} className="w-full p-3 rounded-lg transition-colors duration-200 font-bold" style={{backgroundColor: isSaving ? 'gray' : '#4f46e5', color: 'white'}}>
-            {isSaving ? '저장 중...' : saveStatus || '실시간 저장'}
-          </button>
+          {/* BMI 현황 */}
+          <div className="grid grid-cols-2 gap-6 mb-6">
+            <div className="text-center">
+              <CircularProgress 
+                value={currentBmi} 
+                maxValue={35} 
+                color={bmiCategory.color}
+              />
+              <p className="text-white/80 text-sm mt-3 font-medium">현재 BMI</p>
+            </div>
+            <div className="space-y-3">
+              <div className={`${bmiCategory.class} rounded-xl p-4 text-center sparkle`}>
+                <div className="text-white font-bold text-lg mb-1">
+                  {bmiCategory.icon} {bmiCategory.text}
+                </div>
+                <div className="text-white/90 text-sm">BMI {currentBmi.toFixed(1)}</div>
+              </div>
+              {targetBmi > 0 && (
+                <div className="bg-white/10 rounded-xl p-3 text-center">
+                  <div className="text-white/80 text-sm">목표: {targetBmi.toFixed(1)}</div>
+                  <div className="text-white/60 text-xs">
+                    {bmiDifference > 0 ? '↑' : '↓'} {Math.abs(bmiDifference).toFixed(1)}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 상세 정보 */}
+          {showDetails && (
+            <div className="space-y-6 slide-up">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
+                    <i className="fas fa-weight mr-2"></i>현재 체중 (kg)
+                  </label>
+                  <input 
+                    type="number" 
+                    value={localData.weight || ''} 
+                    onChange={e => handleChange('weight', e.target.value)} 
+                    step="0.1" 
+                    className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+                    placeholder="체중 입력"
+                  />
+                </div>
+                
+                <div>
+                  <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
+                    <i className="fas fa-bullseye mr-2"></i>목표 체중 (kg)
+                  </label>
+                  <input 
+                    type="number" 
+                    value={localData.targetWeight || ''} 
+                    onChange={e => handleChange('targetWeight', e.target.value)} 
+                    step="0.1" 
+                    className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+                    placeholder="목표 체중"
+                  />
+                </div>
+                
+                <div>
+                  <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
+                    <i className="fas fa-calendar-alt mr-2"></i>측정 날짜
+                  </label>
+                  <input 
+                    type="date" 
+                    value={localData.date || ''} 
+                    onChange={e => handleChange('date', e.target.value)} 
+                    className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+                  />
+                </div>
+                
+                <div>
+                  <label className="flex items-center text-white/80 font-medium mb-2 text-sm">
+                    <i className="fas fa-user-circle mr-2"></i>체형 타입
+                  </label>
+                  <select 
+                    value={localData.bodyType || 'normal'} 
+                    onChange={e => handleChange('bodyType', e.target.value)} 
+                    className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white backdrop-blur-sm focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+                  >
+                    <option value="normal">보통 체형</option>
+                    <option value="muscle">근육/통뼈형</option>
+                    <option value="slim">마른 체형</option>
+                    <option value="obese">비만 체형</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* AI 인사이트 */}
+              <HealthInsights memberData={localData} baseData={baseData} />
+
+              {/* 저장 버튼 */}
+              <button 
+                onClick={handleSave} 
+                disabled={isSaving}
+                className="w-full py-4 bg-gradient-to-r from-green-400 to-blue-500 text-white font-bold rounded-2xl sparkle hover:from-green-500 hover:to-blue-600 disabled:opacity-50 transition-all transform hover:scale-105 neon-glow"
+              >
+                {isSaving ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                    <span>저장 중...</span>
+                  </div>
+                ) : (
+                  <span>
+                    <i className="fas fa-save mr-2"></i>
+                    {saveStatus || '데이터 저장하기'}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       );
     };
 
-    const BMIGraph = ({ familyHealthData }) => {
+    // 고급 BMI 차트 컴포넌트
+    const AdvancedBMIChart = ({ familyHealthData }) => {
       const chartRef = useRef(null);
       const chartInstance = useRef(null);
+
       useEffect(() => {
-        if (!familyHealthData) return;
+        if (!familyHealthData || !chartRef.current) return;
+
         Chart.register(ChartDataLabels);
-        const labels = Object.values(initialFamilyData).map(d => d.name);
-        const createDataset = (dataKey, defaultKey) => Object.keys(initialFamilyData).map(id => {
+        
+        const labels = Object.values(initialFamilyData).map(d => `${d.emoji} ${d.name}`);
+        
+        const createDataset = (dataKey, fallbackKey) => Object.keys(initialFamilyData).map(id => {
           const memberData = familyHealthData[id] || {};
-          const weight = parseFloat(memberData[dataKey]) || parseFloat(memberData[defaultKey]) || initialFamilyData[id].weight;
+          const weight = parseFloat(memberData[dataKey]) || parseFloat(memberData[fallbackKey]) || initialFamilyData[id].weight;
           const height = initialFamilyData[id].height / 100;
-          return weight > 0 ? (weight / (height * height)).toFixed(2) : null;
+          return weight > 0 ? parseFloat((weight / (height * height)).toFixed(2)) : null;
         });
+
         const currentBmis = createDataset('weight', 'weight');
         const targetBmis = createDataset('targetWeight', 'weight');
         const recommendedBmis = Object.values(initialFamilyData).map(d => d.recommendedBMI);
-        const currentWeights = Object.keys(initialFamilyData).map(id => { const m = familyHealthData[id] || {}; const w = parseFloat(m.weight) || initialFamilyData[id].weight; return w.toFixed(1); });
-        const targetWeights = Object.keys(initialFamilyData).map(id => { const m = familyHealthData[id] || {}; const w = parseFloat(m.targetWeight) || initialFamilyData[id].weight; return w.toFixed(1); });
-        const recommendedWeights = Object.values(initialFamilyData).map(d => d.recommendedWeight.toFixed(1));
 
-        if (chartInstance.current) chartInstance.current.destroy();
+        if (chartInstance.current) {
+          chartInstance.current.destroy();
+        }
+
+        const ctx = chartRef.current.getContext('2d');
+        
+        // 배경 그라디언트 생성
+        const bgGradient = ctx.createLinearGradient(0, 0, 0, 400);
+        bgGradient.addColorStop(0, 'rgba(79, 172, 254, 0.2)');
+        bgGradient.addColorStop(1, 'rgba(79, 172, 254, 0.05)');
+
         chartInstance.current = new Chart(chartRef.current, {
-          type: 'line', data: { labels, datasets: [
-            { label: '현재 BMI', data: currentBmis, borderColor: '#14b8a6', backgroundColor: '#14b8a6', tension: 0.2, datalabels: { formatter: (v, c) => v ? `${v} (${currentWeights[c.dataIndex]}kg)` : '' } },
-            { label: '목표 BMI', data: targetBmis, borderColor: '#f43f5e', backgroundColor: '#f43f5e', tension: 0.2, datalabels: { formatter: (v, c) => v ? `${v} (${targetWeights[c.dataIndex]}kg)` : '' } },
-            { label: 'AI 추천 BMI', data: recommendedBmis, borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.2, datalabels: { formatter: (v, c) => `${v} (${recommendedWeights[c.dataIndex]}kg)` } }
-          ]},
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: '💪 현재 BMI',
+                data: currentBmis,
+                borderColor: '#4facfe',
+                backgroundColor: bgGradient,
+                borderWidth: 4,
+                tension: 0.4,
+                pointRadius: 8,
+                pointHoverRadius: 12,
+                pointBackgroundColor: '#4facfe',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 3,
+                fill: true,
+                pointHoverBackgroundColor: '#fff',
+                pointHoverBorderColor: '#4facfe'
+              },
+              {
+                label: '🎯 목표 BMI',
+                data: targetBmis,
+                borderColor: '#43e97b',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                tension: 0.4,
+                pointRadius: 6,
+                pointHoverRadius: 10,
+                pointBackgroundColor: '#43e97b',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2
+              },
+              {
+                label: '🏆 추천 BMI',
+                data: recommendedBmis,
+                borderColor: '#ff6b6b',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                borderDash: [2, 2],
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                pointBackgroundColor: '#ff6b6b',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2
+              }
+            ]
+          },
           options: {
-            responsive: true, maintainAspectRatio: false,
-            scales: { y: { beginAtZero: false, min: 15, max: 35 } },
-            plugins: { legend: { position: 'top' }, title: { display: true, text: '가족 BMI 통합 그래프' }, datalabels: { align: 'top' } }
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: true,
+                position: 'top',
+                labels: {
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  font: {
+                    weight: 'bold'
+                  }
+                }
+              },
+              datalabels: {
+                align: 'end',
+                anchor: 'end',
+                offset: 8,
+                font: {
+                  weight: 'bold',
+                  size: 12
+                },
+                formatter: (value) => value ? value.toFixed(1) : '',
+                color: '#fff',
+                textShadowBlur: 5,
+                textShadowColor: 'rgba(0,0,0,0.5)'
+              },
+              tooltip: {
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                titleColor: '#fff',
+                bodyColor: '#fff',
+                padding: 10,
+                cornerRadius: 10,
+                callbacks: {
+                  label: (context) => {
+                    let label = context.dataset.label || '';
+                    if (label) {
+                      label += ': ';
+                    }
+                    if (context.parsed.y !== null) {
+                      label += context.parsed.y.toFixed(1);
+                    }
+                    return label;
+                  }
+                }
+              }
+            },
+            scales: {
+              y: {
+                min: 15,
+                max: 35,
+                grid: {
+                  color: 'rgba(255, 255, 255, 0.1)',
+                  drawBorder: false
+                },
+                ticks: {
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  stepSize: 5,
+                  font: {
+                    weight: 'bold'
+                  }
+                },
+                title: {
+                  display: true,
+                  text: 'BMI 지수',
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  font: {
+                    weight: 'bold'
+                  }
+                }
+              },
+              x: {
+                grid: {
+                  color: 'rgba(255, 255, 255, 0.1)',
+                  drawBorder: false
+                },
+                ticks: {
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  font: {
+                    weight: 'bold'
+                  }
+                }
+              }
+            }
           }
         });
+
       }, [familyHealthData]);
-      return <div className="h-80 md:h-96"><canvas ref={chartRef}></canvas></div>;
-    };
-
-    const InfoTables = () => (
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 space-y-6">
-        <div>
-          <h3 className="text-xl font-bold text-indigo-600 mb-2">📊 BMI 기준 정보</h3>
-          <p className="text-sm text-slate-500 mb-4">BMI = 체중(kg) ÷ (키(m) × 키(m))</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div className="bg-blue-100 dark:bg-blue-900/50 p-4 rounded-md">저체중 <br/><span className="font-bold text-lg">~18.5</span></div>
-            <div className="bg-green-100 dark:bg-green-900/50 p-4 rounded-md">정상 <br/><span className="font-bold text-lg">18.5~25</span></div>
-            <div className="bg-yellow-100 dark:bg-yellow-900/50 p-4 rounded-md">과체중 <br/><span className="font-bold text-lg">25~30</span></div>
-            <div className="bg-red-100 dark:bg-red-900/50 p-4 rounded-md">비만 <br/><span className="font-bold text-lg">30~</span></div>
-          </div>
-        </div>
-      </div>
-    );
-
-    const App = () => {
-      const [isAuthorized, setIsAuthorized] = useState(false);
-      const [db, setDb] = useState(null);
-      const [userId, setUserId] = useState(null);
-      const [familyHealthData, setFamilyHealthData] = useState({});
-      const [loading, setLoading] = useState(true);
-      const [error, setError] = useState(null);
-
-      useEffect(() => {
-        const app = window.initFirebaseApp();
-        if (!app) {
-          setError('Firebase 설정이 필요합니다. <script> 태그에 설정을 붙여넣으세요.');
-          setLoading(false);
-          return;
-        }
-        const auth = window.firebaseRuntime.getAuth(app);
-        const firestoreDb = window.firebaseRuntime.getFirestore(app);
-        setDb(firestoreDb);
-        window.firebaseRuntime.signInAnonymously(auth).then(cred => {
-          if (cred && cred.user) setUserId(cred.user.uid);
-        }).catch(e => {
-          console.error(e);
-          setError('익명 로그인 실패');
-          setLoading(false);
-        });
-      }, []);
-
-      useEffect(() => {
-        if (!db || !userId) return;
-        setLoading(true);
-        const appId = 'family-bmi-dashboard';
-        const collectionPath = `artifacts/${appId}/public/data/familyHealth`;
-        const collectionRef = window.firebaseRuntime.collection(db, collectionPath);
-        const unsubscribes = Object.keys(initialFamilyData).map(memberId => {
-          const docRef = window.firebaseRuntime.doc(collectionRef, memberId);
-          return window.firebaseRuntime.onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-              setFamilyHealthData(prev => ({ ...prev, [memberId]: docSnap.data() }));
-            } else {
-              const initialMemberData = { weight: initialFamilyData[memberId].weight, targetWeight: '', date: new Date().toISOString().split('T')[0], bodyType: 'normal' };
-              window.firebaseRuntime.setDoc(docRef, initialMemberData);
-            }
-          }, (err) => {
-            console.error('데이터 수신 오류', err);
-            setError('데이터를 불러오는 중 오류가 발생했습니다.');
-          });
-        });
-        setLoading(false);
-        return () => unsubscribes.forEach(u => u && u());
-      }, [db, userId]);
-
-      const handleUpdateMember = async (dataToSave) => {
-        if (!db) { throw new Error('데이터베이스 연결 실패'); }
-        try {
-          const appId = 'family-bmi-dashboard';
-          const collectionPath = `artifacts/${appId}/public/data/familyHealth`;
-          const docRef = window.firebaseRuntime.doc(db, collectionPath, dataToSave.id);
-          await window.firebaseRuntime.setDoc(docRef, dataToSave, { merge: true });
-        } catch(e) { console.error('저장 오류', e); throw e; }
-      };
-
-      if (!isAuthorized) {
-        return <PasswordGate onAccess={setIsAuthorized} />;
-      }
-
-      if (loading) return <div className="p-10 text-center">로딩 중...</div>;
-      if (error) return <div className="p-10 text-center text-red-500">{error}</div>;
 
       return (
-        <main className="container mx-auto px-4 py-8">
-          <header className="text-center mb-8">
-            <h1 className="text-3xl font-extrabold text-slate-800 dark:text-slate-100 mb-2">수아동혁가족 BMI 비교UI대시보드AI</h1>
-            <p className="text-md text-slate-600 dark:text-slate-400">우리 가족 건강, 실시간으로 함께 관리해요!</p>
-          </header>
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 mb-8"><BMIGraph familyHealthData={familyHealthData} /></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {Object.keys(initialFamilyData).map(id => (
-              <FamilyMember key={id} baseData={initialFamilyData[id]} memberData={{...initialFamilyData[id], ...familyHealthData[id]}} onUpdate={handleUpdateMember} />
-            ))}
+        <div className="glassmorphism rounded-3xl p-6 fade-in h-[400px]">
+          <h3 className="text-xl font-bold text-white mb-4">
+            <i className="fas fa-chart-line mr-2"></i>
+            가족 BMI 추이
+          </h3>
+          <div className="h-full w-full">
+            <canvas ref={chartRef}></canvas>
           </div>
-          <InfoTables />
-        </main>
+        </div>
       );
     };
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-  </script>
-</body>
-</html>
-der(<App />);
+    // 메인 앱 컴포넌트
+    const App = () => {
+      const [isLoggedIn, setIsLoggedIn] = useState(false);
+      const [familyHealthData, setFamilyHealthData] = useState(() => {
+        try {
+          const savedData = localStorage.getItem('familyHealthData');
+          if (savedData) {
+            return JSON.parse(savedData);
+          }
+        } catch (e) {
+          console.error("Failed to load data from localStorage", e);
+        }
+        return initialFamilyData;
+      });
+
+      useEffect(() => {
+        if (isLoggedIn) {
+          try {
+            localStorage.setItem('familyHealthData', JSON.stringify(familyHealthData));
+          } catch (e) {
+            console.error("Failed to save data to localStorage", e);
+          }
+        }
+      }, [familyHealthData, isLoggedIn]);
+
+      const handleUpdate = (updatedMember) => {
+        setFamilyHealthData(prev => ({
+          ...prev,
+          [updatedMember.id]: {
+            ...prev[updatedMember.id],
+            ...updatedMember
+          }
+        }));
+      };
+
+      if (!isLoggedIn) {
+        return <PasswordGate onAccess={setIsLoggedIn} />;
+      }
+
+      return (
+        <div className="p-4 md:p-8 lg:p-12 text-white">
+          <header className="text-center py-8">
+            <h1 className="text-5xl md:text-6xl font-extrabold mb-2 gradient-text">
+              Ultimate Health Dashboard
+            </h1>
+            <p className="text-lg md:text-xl font-medium text-white/80">
+              <i className="fas fa-heartbeat mr-2 pulse"></i> 우리 가족 건강 관리
+            </p>
+          </header>
+
+          <div className="grid gap-8 mb-12 lg:grid-cols-2 xl:grid-cols-4">
+            {Object.keys(familyHealthData).map(id => (
+              <FamilyMember
+                key={id}
+                memberData={familyHealthData[id]}
+                onUpdate={handleUpdate}
+                baseData={initialFamilyData[id]}
+              />
+            ))}
+          </div>
+
+          <div className="w-full h-[400px]">
+            <AdvancedBMIChart familyHealthData={familyHealthData} />
+          </div>
+
+          <footer className="text-center text-white/50 text-sm mt-12 py-4 border-t border-white/20">
+            © 2025. 수아동혁가족. All Rights Reserved.
+          </footer>
+        </div>
+      );
+    };
+
+    // ReactDOM.createRoot로 변경하여 최신 React 문법 사용
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+
   </script>
 </body>
 </html>

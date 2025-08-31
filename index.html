@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>가족 건강 대시보드</title>
+    <title>수아동혁 가족 건강 대시보드</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -17,9 +17,17 @@
 
         setLogLevel('debug');
 
-        // 환경 변수에서 Firebase 구성 정보를 가져옵니다.
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        // 이 변수들은 외부 환경에서 제공됩니다.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyDVvT5a8vh8CICbT18cqF5dMqRkxalgJWk",
+            authDomain: "bmi-dashboard-project.firebaseapp.com",
+            projectId: "bmi-dashboard-project",
+            storageBucket: "bmi-dashboard-project.firebasestorage.app",
+            messagingSenderId: "124744707008",
+            appId: "1:124744707008:web:02757469b90412cc013625",
+            measurementId: "G-CZQNBEYYCW"
+        };
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let db, auth;
@@ -29,39 +37,36 @@
 
         // 페이지 로드 시 Firebase 초기화 및 데이터 로딩 시작
         window.onload = async () => {
-            if (Object.keys(firebaseConfig).length > 0) {
-                try {
-                    const app = initializeApp(firebaseConfig);
-                    const analytics = getAnalytics(app);
-                    db = getFirestore(app);
-                    auth = getAuth(app);
+            try {
+                const app = initializeApp(firebaseConfig);
+                const analytics = getAnalytics(app);
+                db = getFirestore(app);
+                auth = getAuth(app);
 
-                    // 인증 상태 변화를 감지하고, 사용자 ID를 설정합니다.
-                    onAuthStateChanged(auth, (user) => {
-                        if (user) {
-                            userId = user.uid;
-                            // 사용자 인증 후 데이터 로딩을 시작합니다.
-                            setupRealtimeDataListener(userId);
-                        } else {
-                            console.log("사용자가 로그인하지 않았습니다. 로그인 시도 중...");
-                            // 토큰이 있으면 커스텀 토큰으로, 없으면 익명으로 로그인합니다.
-                            if (initialAuthToken) {
-                                signInWithCustomToken(auth, initialAuthToken).catch(async (error) => {
-                                    console.error("Firebase Custom Auth Error:", error);
-                                    await signInAnonymously(auth);
-                                });
-                            } else {
-                                signInAnonymously(auth).catch(async (error) => {
-                                    console.error("Firebase Anonymous Sign-in Error:", error);
-                                });
-                            }
-                        }
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken).catch((error) => {
+                        console.error("Firebase 커스텀 토큰 로그인 오류:", error);
+                        signInAnonymously(auth);
                     });
-                } catch (e) {
-                    console.error("Firebase 초기화 오류:", e);
+                } else {
+                    await signInAnonymously(auth).catch((error) => {
+                        console.error("Firebase 익명 로그인 오류:", error);
+                    });
                 }
-            } else {
-                console.error("Firebase 구성 정보가 누락되었습니다. 데이터를 불러올 수 없습니다.");
+
+                // 인증 상태 변화를 감지하고, 사용자 ID를 설정합니다.
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        console.log("사용자 ID:", userId);
+                        // 사용자 인증 후 데이터 로딩을 시작합니다.
+                        setupRealtimeDataListener(userId);
+                    } else {
+                        console.log("사용자가 로그인하지 않았습니다.");
+                    }
+                });
+            } catch (e) {
+                console.error("Firebase 초기화 오류:", e);
             }
         };
 
@@ -178,7 +183,7 @@
             const targetWeight = parseFloat(document.getElementById(`target-weight-${memberName}`).value);
 
             if (isNaN(age) || !gender || !bodyType || isNaN(height) || isNaN(weight) || isNaN(targetWeight)) {
-                alert('모든 정보를 올바르게 입력해주세요.');
+                showCustomModal('모든 정보를 올바르게 입력해주세요.');
                 return;
             }
             
@@ -212,7 +217,7 @@
 
             } catch (e) {
                 console.error("문서 업데이트 오류:", e);
-                alert("데이터 저장 중 오류가 발생했습니다. 콘솔을 확인해주세요.");
+                showCustomModal("데이터 저장 중 오류가 발생했습니다. 콘솔을 확인해주세요.");
             }
         };
 

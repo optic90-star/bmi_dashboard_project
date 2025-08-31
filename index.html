@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>가족 통합 건강 대시보드</title>
+  <title>수아동혁가족 BMI 대시보드</title>
   <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
@@ -11,32 +11,27 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+  <!-- ✅ Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
   <style>
-    body { font-family: 'Inter', sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1rem; }
-    .container { max-width: 800px; width: 100%; }
-    .card { background: #1e293b; border: 1px solid #334155; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .btn { background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; transition: background 0.2s; }
-    .btn:hover { background: #2563eb; }
-    .chart-container { background: #1e293b; border-radius: 1rem; padding: 1rem; margin-top: 2rem; border: 1px solid #334155; }
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.75); display: flex; justify-content: center; align-items: center; z-index: 50; }
-    .modal-content { background: #1e293b; padding: 2rem; border-radius: 1rem; text-align: center; max-width: 90%; width: 400px; }
-    .input-field { background: #334155; border: 1px solid #475569; border-radius: 0.5rem; padding: 0.5rem; color: white; width: 100%; margin-top: 0.5rem; }
+    body { font-family: 'Inter', sans-serif; background: #0f172a; color: white; min-height: 100vh; }
+    .glassmorphism { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
+    .gradient-text { background: linear-gradient(to right, #4facfe, #00f2fe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
   </style>
 </head>
 <body>
-
-<div id="root" class="container"></div>
+<div id="root"></div>
 
 <script type="text/babel">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-  import { getFirestore, collection, doc, setDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
   const { useState, useEffect, useRef } = React;
   const { createRoot } = ReactDOM;
   const Chart = window.Chart;
   const ChartDataLabels = window.ChartDataLabels;
 
+  // ✅ Firebase 초기화 (민철님 프로젝트 설정값)
   const firebaseConfig = {
     apiKey: "AIzaSyDVvT5a8vh8CICbT18cqF5dMqRkxalgJWk",
     authDomain: "bmi-dashboard-project.firebaseapp.com",
@@ -46,137 +41,163 @@
     appId: "1:124744707008:web:02757469b90412cc013625",
     measurementId: "G-CZQNBEYYCW"
   };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+  // 기본 가족 데이터
+  const initialFamilyData = {
+    dad: { id: "dad", name: "아빠", height: 178, weight: 95, recommendedBMI: 24 },
+    mom: { id: "mom", name: "엄마", height: 165, weight: 60, recommendedBMI: 22 },
+    daughter: { id: "daughter", name: "수아", height: 160, weight: 48, recommendedBMI: 21 },
+    son: { id: "son", name: "동혁", height: 170, weight: 70, recommendedBMI: 23 }
+  };
 
-  const MEMBER_PASSWORD = '1115';
+  // 비밀번호 게이트
+  const PasswordGate = ({ onAccess }) => {
+    const [pw, setPw] = useState("");
+    const handleLogin = () => { if (pw === "1115") onAccess(true); };
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-slate-900">
+        <div className="bg-slate-800 p-8 rounded-xl">
+          <h2 className="text-2xl mb-4 font-bold">접속 비밀번호 입력</h2>
+          <input type="password" value={pw} onChange={e => setPw(e.target.value)} className="p-2 rounded text-black mb-4" />
+          <button onClick={handleLogin} className="bg-blue-500 px-4 py-2 rounded">확인</button>
+        </div>
+      </div>
+    );
+  };
 
-  const App = () => {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [password, setPassword] = useState('');
-    const [familyHealthData, setFamilyHealthData] = useState([]);
-    const [selectedMember, setSelectedMember] = useState(null);
-    const [isInputModalOpen, setIsInputModalOpen] = useState(false);
-    const [inputWeight, setInputWeight] = useState('');
-    const [inputHeight, setInputHeight] = useState('');
-    const [inputTargetWeight, setInputTargetWeight] = useState('');
-    const [userAuthInfo, setUserAuthInfo] = useState(null);
-    const [authReady, setAuthReady] = useState(false);
-    const [currentMember, setCurrentMember] = useState(null);
+  // BMI 차트
+  const AdvancedBMIChart = ({ familyHealthData, initialData }) => {
+    const canvasRef = useRef(null);
+    const chartRef = useRef(null);
 
     useEffect(() => {
-      const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          setUserAuthInfo({ uid: user.uid });
-        } else {
-          try {
-            await signInAnonymously(auth);
-          } catch (error) {
-            console.error("Anonymous sign-in failed", error);
+      if (!familyHealthData || Object.keys(familyHealthData).length === 0) return;
+      const ctx = canvasRef.current.getContext("2d");
+      if (chartRef.current) chartRef.current.destroy();
+
+      const labels = Object.values(familyHealthData).map(m => m.name);
+      const currentBmis = Object.values(familyHealthData).map(m => {
+        const h = initialData[m.id].height / 100;
+        return m.weight ? (m.weight / (h*h)) : 0;
+      });
+      const targetBmis = Object.values(initialData).map(m => m.recommendedBMI);
+
+      chartRef.current = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: '현재 BMI',
+              data: currentBmis,
+              backgroundColor: 'rgba(75,192,192,0.6)',
+              borderColor: 'rgba(75,192,192,1)',
+              borderWidth: 1,
+              datalabels: {
+                color: 'white',
+                anchor: 'end',
+                align: 'top',
+                formatter: v => v>0 ? v.toFixed(1) : ''
+              }
+            },
+            {
+              label: '목표 BMI',
+              data: targetBmis,
+              type: 'line',
+              borderColor: 'rgba(255,255,255,0.8)',
+              borderWidth: 2,
+              datalabels: { display: false }
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { labels: { color: 'white' } },
+            title: { display: true, text: '가족 BMI 추이', color: 'white' }
+          },
+          scales: {
+            x: { ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.2)' } },
+            y: { ticks: { color: 'white' }, min: 15, max: 35 }
           }
-        }
-        setAuthReady(true);
+        },
+        plugins: [ChartDataLabels]
       });
 
-      return () => unsubscribeAuth();
+      return () => { if (chartRef.current) chartRef.current.destroy(); };
+    }, [familyHealthData]);
+
+    return <canvas ref={canvasRef} />;
+  };
+
+  // 메인 앱
+  const App = () => {
+    const [hasAccess, setHasAccess] = useState(false);
+    const [data, setData] = useState(initialFamilyData);
+
+    // ✅ Firestore 데이터 실시간 불러오기
+    useEffect(() => {
+      const unsub = db.collection("family").onSnapshot(snapshot => {
+        const newData = { ...initialFamilyData };
+        snapshot.forEach(doc => {
+          newData[doc.id] = { ...newData[doc.id], ...doc.data() };
+        });
+        setData(newData);
+      });
+      return () => unsub();
     }, []);
 
-    useEffect(() => {
-      if (!authReady || !userAuthInfo) return;
-
-      const userDocRef = doc(db, `user_data/${userAuthInfo.uid}`);
-      const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
-        if (doc.exists()) {
-          setCurrentMember(doc.data());
-        }
-      }, (error) => {
-        console.error("Error fetching user data:", error);
-      });
-
-      const q = query(collection(db, "family_data"));
-      const unsubscribeFirestore = onSnapshot(q, (snapshot) => {
-        const data = snapshot.docs.map(d => d.data());
-        setFamilyHealthData(data);
-      }, (error) => {
-        console.error("Error fetching family data:", error);
-      });
-
-      return () => {
-        unsubscribeUser();
-        unsubscribeFirestore();
-      };
-    }, [authReady, userAuthInfo]);
-
-    const handlePasswordChange = (e) => setPassword(e.target.value);
-    const handleLogin = () => {
-      if (password === MEMBER_PASSWORD) {
-        setIsAuthenticated(true);
-        if (userAuthInfo) {
-          console.log("User logged in with UID:", userAuthInfo.uid);
-        }
-      } else {
-        console.log('비밀번호가 틀렸습니다.');
-      }
+    // ✅ 데이터 저장하기
+    const updateWeight = async (id, newWeight) => {
+      await db.collection("family").doc(id).set({ weight: newWeight }, { merge: true });
     };
 
-    const handleCardClick = (member) => {
-      setSelectedMember(member);
-      setInputWeight(member.currentWeight || '');
-      setInputHeight(member.height || '');
-      setInputTargetWeight(member.targetWeight || '');
-      setIsInputModalOpen(true);
-    };
+    if (!hasAccess) return <PasswordGate onAccess={setHasAccess} />;
 
-    const handleSave = async () => {
-      if (!selectedMember || !userAuthInfo) return;
+    return (
+      <div className="min-h-screen p-6">
+        <header className="text-center py-8">
+          <h1 className="text-4xl font-extrabold mb-2 gradient-text">수아동혁가족 BMI 대시보드</h1>
+          <p className="text-lg text-white/80">우리 가족 건강 상태를 실시간 저장</p>
+        </header>
 
-      const memberId = selectedMember.name;
-      const userDocRef = doc(db, `user_data/${userAuthInfo.uid}`);
-      const memberDocRef = doc(db, `family_data/${memberId}`);
-      const newBmi = parseFloat(inputWeight) / (parseFloat(inputHeight) / 100) ** 2;
+        {/* 체중 수정 UI */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {Object.values(data).map(member => (
+            <div key={member.id} className="glassmorphism p-4 rounded-xl">
+              <h3 className="text-xl font-bold mb-2">{member.name}</h3>
+              <p>키: {member.height} cm</p>
+              <p>현재 체중: {member.weight} kg</p>
+              <input
+                type="number"
+                className="w-full mt-2 p-2 text-black rounded"
+                placeholder="새 체중 입력 후 Enter"
+                onKeyDown={e => {
+                  if (e.key === "Enter") updateWeight(member.id, parseFloat(e.target.value));
+                }}
+              />
+            </div>
+          ))}
+        </div>
 
-      const memberData = {
-        name: selectedMember.name,
-        gender: selectedMember.gender,
-        height: parseFloat(inputHeight),
-        targetWeight: parseFloat(inputTargetWeight),
-        currentWeight: parseFloat(inputWeight),
-        bmi: parseFloat(newBmi.toFixed(1)),
-        initialWeight: selectedMember.initialWeight || parseFloat(inputWeight),
-        initialTargetWeight: selectedMember.initialTargetWeight || parseFloat(inputTargetWeight),
-        log: [
-          ...(selectedMember.log || []),
-          { date: new Date().toISOString().slice(0, 10), weight: parseFloat(inputWeight), bmi: newBmi }
-        ],
-      };
+        {/* BMI 차트 */}
+        <div className="w-full h-[400px] glassmorphism p-4 rounded-3xl">
+          <AdvancedBMIChart familyHealthData={data} initialData={initialFamilyData} />
+        </div>
 
-      try {
-        await setDoc(userDocRef, memberData);
-        await setDoc(memberDocRef, memberData);
-        console.log('데이터가 성공적으로 저장되었습니다.');
-        setIsInputModalOpen(false);
-      } catch (e) {
-        console.error("Error writing document: ", e);
-        console.log('데이터 저장에 실패했습니다.');
-      }
-    };
+        <footer className="text-center text-white/50 text-sm mt-12 py-4 border-t border-white/20">
+          © 2025. 수아동혁가족. All Rights Reserved.
+        </footer>
+      </div>
+    );
+  };
 
-    const PasswordScreen = () => (
-      <div className="flex flex-col items-center justify-center h-screen bg-slate-900 text-white p-4">
-        <div className="card w-full max-w-sm flex flex-col items-center p-8">
-          <h2 className="text-2xl mb-4 font-bold text-center">대시보드 접속</h2>
-          <p className="text-gray-400 mb-6 text-center">비밀번호를 입력하세요.</p>
-          <input
-            type="password"
-            className="input-field mb-4 text-center"
-            value={password}
-            onChange={handlePasswordChange}
-            onKeyPress={(e) => { if (e.key === 'Enter') handleLogin(); }}
-            placeholder="비밀번호"
-          />
-          <button onClick={handleLogin} className="btn w-full">확인</button>
+  createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>Login} className="btn w-full">확인</button>
           <p className="mt-4 text-sm text-gray-500">
             접속 오류 시, Firebase 콘솔 &gt; Firestore Database &gt; Rules에서 'allow read, write: if true'로 변경해주세요.
           </p>

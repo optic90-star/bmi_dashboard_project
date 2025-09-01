@@ -96,7 +96,7 @@
             if (!container) return;
             
             const memberTitle = container.querySelector('.member-name');
-            memberTitle.textContent = `${member.name}님`;
+            memberTitle.textContent = `${member.name}`;
             memberTitle.style.color = member.color;
 
             const chartCanvas = container.querySelector('canvas');
@@ -118,7 +118,7 @@
 
                 updateIndividualDashboard(member, data, chartCanvas, dataTableBody);
             }, (error) => {
-                console.error(`Error listening to data for ${member.name}:`, error);
+    console.error(`Error listening to data for ${member.name}:`, error);
             });
 
             submitBtn.addEventListener('click', async () => {
@@ -161,7 +161,7 @@
             data.forEach(d => {
                 const row = document.createElement('tr');
                 row.className = 'border-b border-gray-700 last:border-b-0';
-                const achievementRate = d.targetWeight ? ((d.weight / d.targetWeight) * 100).toFixed(1) : '-';
+                const achievementRate = d.targetWeight ? ((d.targetWeight / d.weight) * 100).toFixed(1) : '-';
                 row.innerHTML = `
                     <td class="p-3">${new Date(d.timestamp).toLocaleDateString()}</td>
                     <td class="p-3">${d.weight} kg</td>
@@ -269,7 +269,7 @@
                 const latestData = latestDataByMember[memberId];
                 if (latestData) {
                     const memberName = familyMembers[latestData.memberId].name;
-                    const achievementRate = latestData.targetWeight ? ((latestData.weight / latestData.targetWeight) * 100).toFixed(1) : '-';
+                    const achievementRate = latestData.targetWeight ? ((latestData.targetWeight / latestData.weight) * 100).toFixed(1) : '-';
                     const row = document.createElement('tr');
                     row.className = 'border-b border-gray-700 last:border-b-0';
                     row.innerHTML = `

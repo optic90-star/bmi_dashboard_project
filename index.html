@@ -1,5 +1,3 @@
-<!DOCTYPE html>
-<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -264,7 +262,6 @@
                     memberDiv.innerHTML = `
                         <h2 class="text-2xl font-bold mb-4 text-center">${member.name}의 건강 대시보드</h2>
                         
-                        <!-- Individual Achievement Rate -->
                         <div class="flex flex-col items-center mb-6">
                             <h3 class="text-xl font-semibold mb-2 text-center">개별 목표 달성률</h3>
                             <p class="text-4xl font-bold mb-2"><span id="individual-rate-${sanitizedName}">${individualRate}%</span></p>
@@ -273,7 +270,6 @@
                             </div>
                         </div>
                         
-                        <!-- Individual Chart -->
                         <h3 class="text-xl font-semibold mb-2 text-center">체중/BMI 변화 추이</h3>
                         <div class="w-full h-[56vh] md:h-80">
                             <canvas id="individual-chart-${sanitizedName}"></canvas>
@@ -504,7 +500,6 @@
     </style>
 </head>
 <body class="p-0 md:p-6 min-h-screen flex flex-col space-y-6 md:space-y-8">
-    <!-- Sticky Header -->
     <header class="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-black/40 bg-black/60 border-b border-white/10">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 md:py-4 flex items-center justify-between">
             <h1 class="text-lg sm:text-xl md:text-2xl font-bold">수아동혁 가족 건강 대시보드</h1>
@@ -516,9 +511,7 @@
     </header>
     <main class="px-4 sm:px-6 pt-4 md:pt-6 flex-1 flex flex-col items-center justify-start">
     <div class="w-full max-w-7xl mx-auto space-y-6 md:space-y-8">
-        <!-- Input Form (Unified and Horizontal) -->
         <div class="bmi-container p-4 sm:p-6">
-            <!-- Small screens: enable horizontal scroll to keep inputs usable -->
             <div class="overflow-x-auto -mx-2 sm:mx-0">
             <div class="min-w-[720px] md:min-w-0 px-2 sm:px-0">
             <h2 class="text-2xl font-bold mb-4 text-center">가족 건강 정보 입력</h2>
@@ -530,7 +523,6 @@
                 <div class="text-center font-bold text-sm">둘째아들</div>
             </div>
 
-            <!-- Age Row -->
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-center mb-2">
                 <label class="font-medium text-sm text-gray-400">나이</label>
                 <input type="number" id="age-아빠" class="col-span-1 block w-full rounded-md shadow-sm placeholder-gray-400" placeholder="예: 45">
@@ -539,7 +531,6 @@
                 <input type="number" id="age-둘째아들" class="col-span-1 block w-full rounded-md shadow-sm placeholder-gray-400" placeholder="예: 12">
             </div>
 
-            <!-- Gender Row -->
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-center mb-2">
                 <label class="font-medium text-sm text-gray-400">성별</label>
                 <select id="gender-아빠" class="col-span-1 block w-full rounded-md shadow-sm">
@@ -560,7 +551,6 @@
                 </select>
             </div>
             
-            <!-- Body Type Row -->
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-center mb-2">
                 <label class="font-medium text-sm text-gray-400">체형</label>
                 <select id="body-type-아빠" class="col-span-1 block w-full rounded-md shadow-sm">
@@ -589,7 +579,6 @@
                 </select>
             </div>
 
-            <!-- Height Row -->
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-center mb-2">
                 <label class="font-medium text-sm text-gray-400">키 (cm)</label>
                 <input type="number" id="height-아빠" class="col-span-1 block w-full rounded-md shadow-sm placeholder-gray-400" placeholder="예: 175">
@@ -598,7 +587,6 @@
                 <input type="number" id="height-둘째아들" class="col-span-1 block w-full rounded-md shadow-sm placeholder-gray-400" placeholder="예: 150">
             </div>
 
-            <!-- Current Weight Row -->
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-center mb-2">
                 <label class="font-medium text-sm text-gray-400">현재 체중 (kg)</label>
                 <input type="number" id="weight-아빠" class="col-span-1 block w-full rounded-md shadow-sm placeholder-gray-400" placeholder="예: 70">
@@ -607,7 +595,6 @@
                 <input type="number" id="weight-둘째아들" class="col-span-1 block w-full rounded-md shadow-sm placeholder-gray-400" placeholder="예: 43">
             </div>
 
-            <!-- Target Weight Row -->
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-center mb-2">
                 <label class="font-medium text-sm text-gray-400">목표 체중 (kg)</label>
                 <input type="number" id="target-weight-아빠" class="col-span-1 block w-full rounded-md shadow-sm placeholder-gray-400" placeholder="예: 68">
@@ -636,16 +623,13 @@
         
         <hr class="border-t border-gray-600 my-6 md:my-8">
 
-        <!-- Individual Family Dashboards -->
         <h2 class="text-2xl font-bold mb-4 text-center">개별 건강 대시보드</h2>
         <div id="individual-dashboards-container" class="flex flex-col sm:flex-row sm:flex-wrap gap-4 sm:gap-6">
-            <!-- Dynamic dashboards will be inserted here -->
             <p class="text-gray-400 text-center w-full">개별 가족 구성원 대시보드를 보려면 정보를 입력해주세요.</p>
         </div>
 
         <hr class="border-t border-gray-600 my-8">
 
-        <!-- Overall Health Summary & Trends (Combined Dashboard) -->
         <div class="bmi-container p-6 flex flex-col items-center justify-center">
             <h2 class="text-2xl font-bold mb-4 text-center">가족 건강 요약 및 추이</h2>
             
@@ -662,9 +646,7 @@
             </div>
         </div>
         
-        <!-- Registered Family List -->
         <div class="bmi-container p-4 sm:p-6">
-            <!-- Small screens: enable horizontal scroll to keep inputs usable -->
             <div class="overflow-x-auto -mx-2 sm:mx-0">
             <div class="min-w-[720px] md:min-w-0 px-2 sm:px-0">
             <h2 class="text-2xl font-bold mb-4">등록된 가족</h2>
@@ -673,9 +655,7 @@
             </div>
         </div>
 
-        <!-- BMI Reference Table -->
         <div class="bmi-container p-4 sm:p-6">
-            <!-- Small screens: enable horizontal scroll to keep inputs usable -->
             <div class="overflow-x-auto -mx-2 sm:mx-0">
             <div class="min-w-[720px] md:min-w-0 px-2 sm:px-0">
             <h2 class="text-2xl font-bold mb-4 text-center">BMI 지수 참고표</h2>
@@ -704,4 +684,3 @@
     </div>
     </main>
 </body>
-</html>

@@ -1,89 +1,588 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Welcome to Firebase Hosting</title>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우리 가족 건강 대시보드</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <script type="module">
+        import { initializeApp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    <!-- update the version number as needed -->
-    <script defer src="/__/firebase/12.2.1/firebase-app-compat.js"></script>
-    <!-- include only the Firebase features as you need -->
-    <script defer src="/__/firebase/12.2.1/firebase-auth-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-database-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-firestore-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-functions-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-messaging-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-storage-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-analytics-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-remote-config-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-performance-compat.js"></script>
-    <!-- 
-      initialize the SDK after all desired features are loaded, set useEmulator to false
-      to avoid connecting the SDK to running emulators.
-    -->
-    <script defer src="/__/firebase/init.js?useEmulator=true"></script>
+        // 전역 변수
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-    <style media="screen">
-      body { background: #ECEFF1; color: rgba(0,0,0,0.87); font-family: Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
-      #message { background: white; max-width: 360px; margin: 100px auto 16px; padding: 32px 24px; border-radius: 3px; }
-      #message h2 { color: #ffa100; font-weight: bold; font-size: 16px; margin: 0 0 8px; }
-      #message h1 { font-size: 22px; font-weight: 300; color: rgba(0,0,0,0.6); margin: 0 0 16px;}
-      #message p { line-height: 140%; margin: 16px 0 24px; font-size: 14px; }
-      #message a { display: block; text-align: center; background: #039be5; text-transform: uppercase; text-decoration: none; color: white; padding: 16px; border-radius: 4px; }
-      #message, #message a { box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
-      #load { color: rgba(0,0,0,0.4); text-align: center; font-size: 13px; }
-      @media (max-width: 600px) {
-        body, #message { margin-top: 0; background: white; box-shadow: none; }
-        body { border-top: 16px solid #ffa100; }
-      }
-    </style>
-  </head>
-  <body>
-    <div id="message">
-      <h2>Welcome</h2>
-      <h1>Firebase Hosting Setup Complete</h1>
-      <p>You're seeing this because you've successfully setup Firebase Hosting. Now it's time to go build something extraordinary!</p>
-      <a target="_blank" href="https://firebase.google.com/docs/hosting/">Open Hosting Documentation</a>
-    </div>
-    <p id="load">Firebase SDK Loading&hellip;</p>
+        // Firestore 로깅 설정 (디버그용)
+        setLogLevel('debug');
+        
+        // Firebase 앱 초기화
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        // 가족 구성원 데이터 및 색상
+        const familyMembers = {
+            'suah': { name: '수아', id: 'suah', color: 'rgb(20, 184, 166)' },
+            'donghyuk': { name: '동혁', id: 'donghyuk', color: 'rgb(59, 130, 246)' },
+            'dad': { name: '아빠', id: 'dad', color: 'rgb(249, 115, 22)' },
+            'mom': { name: '엄마', id: 'mom', color: 'rgb(168, 85, 247)' }
+        };
 
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const loadEl = document.querySelector('#load');
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
-        // // The Firebase SDK is initialized and available here!
-        //
-        // firebase.auth().onAuthStateChanged(user => { });
-        // firebase.database().ref('/path/to/ref').on('value', snapshot => { });
-        // firebase.firestore().doc('/foo/bar').get().then(() => { });
-        // firebase.functions().httpsCallable('yourFunction')().then(() => { });
-        // firebase.messaging().requestPermission().then(() => { });
-        // firebase.storage().ref('/path/to/ref').getDownloadURL().then(() => { });
-        // firebase.analytics(); // call to activate
-        // firebase.analytics().logEvent('tutorial_completed');
-        // firebase.performance(); // call to activate
-        //
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
+        let userId = null;
+        const charts = {};
+        let unifiedChart = null;
+        
+        // 사용자 인증 및 Firestore 초기화
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                initializeFamilyDashboard();
+                initializeUnifiedDashboard();
+            } else {
+                if (initialAuthToken) {
+                    try {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } catch (error) {
+                        console.error('Custom token sign-in failed:', error);
+                        await signInAnonymously(auth);
+                    }
+                } else {
+                    await signInAnonymously(auth);
+                }
+            }
+        });
+        
+        // 데이터베이스 경로 설정
+        const getPublicDbPath = (collectionName) => {
+            return `/artifacts/${appId}/public/data/${collectionName}`;
+        };
 
-        try {
-          let app = firebase.app();
-          let features = [
-            'auth', 
-            'database', 
-            'firestore',
-            'functions',
-            'messaging', 
-            'storage', 
-            'analytics', 
-            'remoteConfig',
-            'performance',
-          ].filter(feature => typeof app[feature] === 'function');
-          loadEl.textContent = `Firebase SDK loaded with ${features.join(', ')}`;
-        } catch (e) {
-          console.error(e);
-          loadEl.textContent = 'Error loading the Firebase SDK, check the console.';
+        // 개별 대시보드 초기화
+        async function initializeFamilyDashboard() {
+            document.getElementById('family-container').style.display = 'grid';
+            for (const memberId in familyMembers) {
+                if (familyMembers.hasOwnProperty(memberId)) {
+                    await renderFamilyMemberSection(familyMembers[memberId]);
+                }
+            }
         }
-      });
+        
+        // 통합 대시보드 초기화
+        async function initializeUnifiedDashboard() {
+            document.getElementById('unified-dashboard-container').style.display = 'block';
+            const dataCollectionRef = collection(db, getPublicDbPath('healthData'));
+            
+            onSnapshot(dataCollectionRef, (snapshot) => {
+                const allData = [];
+                snapshot.forEach(doc => {
+                    const docData = doc.data();
+                    allData.push({ id: doc.id, ...docData });
+                });
+                updateUnifiedDashboard(allData);
+            }, (error) => {
+                console.error(`Error listening to data:`, error);
+            });
+        }
+        
+        // 개별 구성원 섹션 렌더링 및 데이터 바인딩
+        async function renderFamilyMemberSection(member) {
+            const container = document.getElementById(member.id);
+            if (!container) return;
+            
+            const memberTitle = container.querySelector('.member-name');
+            memberTitle.textContent = `${member.name}님`;
+            memberTitle.style.color = member.color;
+
+            const chartCanvas = container.querySelector('canvas');
+            const dataTableBody = container.querySelector('tbody');
+            const weightInput = container.querySelector('.weight-input');
+            const heightInput = container.querySelector('.height-input');
+            const targetWeightInput = container.querySelector('.target-weight-input');
+            const submitBtn = container.querySelector('.submit-btn');
+
+            const dataCollectionRef = collection(db, getPublicDbPath('healthData'));
+            
+            onSnapshot(query(dataCollectionRef, where('memberId', '==', member.id)), (snapshot) => {
+                const data = [];
+                snapshot.forEach(doc => {
+                    const docData = doc.data();
+                    data.push({ id: doc.id, ...docData });
+                });
+                data.sort((a, b) => b.timestamp - a.timestamp);
+
+                updateIndividualDashboard(member, data, chartCanvas, dataTableBody);
+            }, (error) => {
+                console.error(`Error listening to data for ${member.name}:`, error);
+            });
+
+            submitBtn.addEventListener('click', async () => {
+                const weight = parseFloat(weightInput.value);
+                const height = parseFloat(heightInput.value);
+                const targetWeight = parseFloat(targetWeightInput.value);
+
+                if (isNaN(weight) || isNaN(height) || weight <= 0 || height <= 0 || isNaN(targetWeight) || targetWeight <= 0) {
+                    showModal('유효한 체중, 키, 목표 체중을 입력해주세요.');
+                    return;
+                }
+
+                const bmi = calculateBMI(weight, height);
+                const timestamp = Date.now();
+
+                const newData = {
+                    memberId: member.id,
+                    weight: weight,
+                    height: height,
+                    bmi: bmi,
+                    targetWeight: targetWeight,
+                    timestamp: timestamp,
+                };
+                
+                try {
+                    await addDoc(dataCollectionRef, newData);
+                    weightInput.value = '';
+                    heightInput.value = '';
+                    targetWeightInput.value = '';
+                } catch (e) {
+                    console.error("Error adding document: ", e);
+                    showModal("데이터 저장 중 오류가 발생했습니다.");
+                }
+            });
+        }
+        
+        // 개별 대시보드 UI 및 차트 업데이트
+        function updateIndividualDashboard(member, data, chartCanvas, dataTableBody) {
+            dataTableBody.innerHTML = '';
+            data.forEach(d => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-700 last:border-b-0';
+                const achievementRate = d.targetWeight ? ((d.weight / d.targetWeight) * 100).toFixed(1) : '-';
+                row.innerHTML = `
+                    <td class="p-3">${new Date(d.timestamp).toLocaleDateString()}</td>
+                    <td class="p-3">${d.weight} kg</td>
+                    <td class="p-3">${d.height} cm</td>
+                    <td class="p-3 font-semibold ${getBmiColor(d.bmi)}">${d.bmi}</td>
+                    <td class="p-3">${d.targetWeight} kg</td>
+                    <td class="p-3">${achievementRate}%</td>
+                `;
+                dataTableBody.appendChild(row);
+            });
+
+            const labels = data.map(d => new Date(d.timestamp).toLocaleDateString()).reverse();
+            const bmiData = data.map(d => d.bmi).reverse();
+
+            if (charts[member.id]) {
+                charts[member.id].destroy();
+            }
+
+            charts[member.id] = new Chart(chartCanvas, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: `${member.name} BMI 변화`,
+                        data: bmiData,
+                        borderColor: member.color,
+                        backgroundColor: member.color.replace('rgb', 'rgba').replace(')', ', 0.2)'),
+                        pointBorderColor: '#fff',
+                        pointBackgroundColor: member.color,
+                        pointBorderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#a0aec0' } } },
+                    scales: {
+                        x: { ticks: { color: '#a0aec0' }, grid: { color: 'rgba(255, 255, 255, 0.1)' } },
+                        y: { ticks: { color: '#a0aec0' }, grid: { color: 'rgba(255, 255, 255, 0.1)' }, min: 15, max: 30 }
+                    }
+                }
+            });
+        }
+
+        // 통합 대시보드 UI 및 차트 업데이트
+        function updateUnifiedDashboard(allData) {
+            const dataTableBody = document.getElementById('unified-table-body');
+            dataTableBody.innerHTML = '';
+            
+            const latestDataByMember = {};
+            const uniqueDates = [...new Set(allData.map(d => new Date(d.timestamp).toLocaleDateString()))].sort((a, b) => new Date(a) - new Date(b));
+
+            allData.sort((a, b) => b.timestamp - a.timestamp);
+            allData.forEach(d => {
+                if (!latestDataByMember[d.memberId]) {
+                    latestDataByMember[d.memberId] = d;
+                }
+            });
+
+            const datasets = [];
+            for (const memberId in familyMembers) {
+                const memberInfo = familyMembers[memberId];
+                const memberData = allData.filter(d => d.memberId === memberId);
+                
+                const bmiValues = uniqueDates.map(date => {
+                    const dataPoint = memberData.find(d => new Date(d.timestamp).toLocaleDateString() === date);
+                    return dataPoint ? dataPoint.bmi : null;
+                });
+                
+                datasets.push({
+                    label: `${memberInfo.name} BMI`,
+                    data: bmiValues,
+                    borderColor: memberInfo.color,
+                    backgroundColor: memberInfo.color.replace('rgb', 'rgba').replace(')', ', 0.2)'),
+                    pointBorderColor: '#fff',
+                    pointBackgroundColor: memberInfo.color,
+                    pointBorderWidth: 2,
+                    fill: false,
+                    tension: 0.4
+                });
+            }
+
+            if (unifiedChart) {
+                unifiedChart.destroy();
+            }
+
+            const chartCanvas = document.getElementById('unified-chart');
+            unifiedChart = new Chart(chartCanvas, {
+                type: 'line',
+                data: { labels: uniqueDates, datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#a0aec0' } } },
+                    scales: {
+                        x: { ticks: { color: '#a0aec0' }, grid: { color: 'rgba(255, 255, 255, 0.1)' } },
+                        y: { ticks: { color: '#a0aec0' }, grid: { color: 'rgba(255, 255, 255, 0.1)' }, min: 15, max: 30 }
+                    }
+                }
+            });
+
+            for (const memberId in familyMembers) {
+                const latestData = latestDataByMember[memberId];
+                if (latestData) {
+                    const memberName = familyMembers[latestData.memberId].name;
+                    const achievementRate = latestData.targetWeight ? ((latestData.weight / latestData.targetWeight) * 100).toFixed(1) : '-';
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-700 last:border-b-0';
+                    row.innerHTML = `
+                        <td class="p-3 font-semibold">${memberName}</td>
+                        <td class="p-3">${latestData.weight} kg</td>
+                        <td class="p-3 font-semibold ${getBmiColor(latestData.bmi)}">${latestData.bmi}</td>
+                        <td class="p-3">${latestData.targetWeight} kg</td>
+                        <td class="p-3 ${getAchievementColor(achievementRate)}">${achievementRate}%</td>
+                    `;
+                    dataTableBody.appendChild(row);
+                }
+            }
+        }
+        
+        // BMI 지수별 색상 반환
+        function getBmiColor(bmi) {
+            if (bmi < 18.5) return 'text-yellow-400';
+            if (bmi >= 18.5 && bmi < 25) return 'text-green-400';
+            if (bmi >= 25 && bmi < 30) return 'text-orange-400';
+            return 'text-red-400';
+        }
+
+        // 목표 달성률 색상 반환
+        function getAchievementColor(rate) {
+            if (rate === '-') return 'text-gray-400';
+            const numRate = parseFloat(rate);
+            if (numRate >= 95 && numRate <= 105) return 'text-green-400 font-bold';
+            return 'text-red-400';
+        }
+
+        // BMI 계산 함수
+        function calculateBMI(weight, height) {
+            const heightInMeters = height / 100;
+            return (weight / (heightInMeters * heightInMeters)).toFixed(2);
+        }
+
+        // 커스텀 모달 표시
+        function showModal(message) {
+            const modal = document.getElementById('custom-modal');
+            const modalMessage = document.getElementById('modal-message');
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+
+            modalMessage.textContent = message;
+            modal.style.display = 'flex';
+
+            modalCloseBtn.onclick = () => {
+                modal.style.display = 'none';
+            };
+
+            window.onclick = (event) => {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                }
+            };
+        }
     </script>
-  </body>
+</head>
+
+<body class="bg-gray-900 text-white font-sans flex flex-col min-h-screen">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="text-center mb-8 sm:mb-12">
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-teal-400">우리 가족 건강 대시보드</h1>
+            <p class="text-sm sm:text-base text-gray-400 mt-2">우리 가족의 건강 데이터를 한눈에 확인하고 관리하세요.</p>
+        </header>
+
+        <!-- 개별 구성원 섹션 -->
+        <main id="family-container" class="grid grid-cols-1 sm:grid-cols-2 gap-8 md:gap-12" style="display: none;">
+            <!-- 아빠 섹션 -->
+            <div id="dad" class="bg-[#1a202c] rounded-2xl shadow-lg p-6 flex flex-col">
+                <h2 class="member-name text-2xl font-bold mb-4 text-center"></h2>
+                <div class="bmi-calculator-section mb-6">
+                    <h3 class="text-xl font-semibold mb-3 text-white">BMI 계산기</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="dad-weight" class="block text-sm font-medium text-gray-400 mb-1">체중 (kg)</label>
+                            <input type="number" id="dad-weight" placeholder="예: 75" class="weight-input w-full p-3 bg-[#2d3748] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label for="dad-height" class="block text-sm font-medium text-gray-400 mb-1">키 (cm)</label>
+                            <input type="number" id="dad-height" placeholder="예: 178" class="height-input w-full p-3 bg-[#2d3748] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label for="dad-target-weight" class="block text-sm font-medium text-gray-400 mb-1">목표 체중 (kg)</label>
+                            <input type="number" id="dad-target-weight" placeholder="예: 72" class="target-weight-input w-full p-3 bg-[#2d3748] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <button class="submit-btn w-full py-3 bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold rounded-lg hover:from-blue-600 hover:to-blue-800 transition-colors shadow-lg">기록 추가</button>
+                    </div>
+                </div>
+                <div class="bmi-chart-section mb-6 flex-grow flex items-center justify-center">
+                    <canvas class="chart-canvas w-full h-auto max-h-80 md:max-h-96"></canvas>
+                </div>
+                <div class="data-table-section mt-auto">
+                    <h3 class="text-xl font-semibold mb-3 text-white">최근 데이터</h3>
+                    <div class="overflow-x-auto rounded-lg border border-gray-700">
+                        <table class="min-w-full table-auto text-sm">
+                            <thead class="bg-[#2d3748]">
+                                <tr>
+                                    <th class="p-3 text-left font-semibold">날짜</th>
+                                    <th class="p-3 text-left font-semibold">체중</th>
+                                    <th class="p-3 text-left font-semibold">키</th>
+                                    <th class="p-3 text-left font-semibold">BMI</th>
+                                    <th class="p-3 text-left font-semibold">목표 체중</th>
+                                    <th class="p-3 text-left font-semibold">달성률</th>
+                                </tr>
+                            </thead>
+                            <tbody class="data-table-body">
+                                <!-- 데이터가 여기에 삽입됩니다. -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 엄마 섹션 -->
+            <div id="mom" class="bg-[#1a202c] rounded-2xl shadow-lg p-6 flex flex-col">
+                <h2 class="member-name text-2xl font-bold mb-4 text-center"></h2>
+                <div class="bmi-calculator-section mb-6">
+                    <h3 class="text-xl font-semibold mb-3 text-white">BMI 계산기</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="mom-weight" class="block text-sm font-medium text-gray-400 mb-1">체중 (kg)</label>
+                            <input type="number" id="mom-weight" placeholder="예: 60" class="weight-input w-full p-3 bg-[#2d3748] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label for="mom-height" class="block text-sm font-medium text-gray-400 mb-1">키 (cm)</label>
+                            <input type="number" id="mom-height" placeholder="예: 162" class="height-input w-full p-3 bg-[#2d3748] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label for="mom-target-weight" class="block text-sm font-medium text-gray-400 mb-1">목표 체중 (kg)</label>
+                            <input type="number" id="mom-target-weight" placeholder="예: 58" class="target-weight-input w-full p-3 bg-[#2d3748] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <button class="submit-btn w-full py-3 bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold rounded-lg hover:from-blue-600 hover:to-blue-800 transition-colors shadow-lg">기록 추가</button>
+                    </div>
+                </div>
+                <div class="bmi-chart-section mb-6 flex-grow flex items-center justify-center">
+                    <canvas class="chart-canvas w-full h-auto max-h-80 md:max-h-96"></canvas>
+                </div>
+                <div class="data-table-section mt-auto">
+                    <h3 class="text-xl font-semibold mb-3 text-white">최근 데이터</h3>
+                    <div class="overflow-x-auto rounded-lg border border-gray-700">
+                        <table class="min-w-full table-auto text-sm">
+                            <thead class="bg-[#2d3748]">
+                                <tr>
+                                    <th class="p-3 text-left font-semibold">날짜</th>
+                                    <th class="p-3 text-left font-semibold">체중</th>
+                                    <th class="p-3 text-left font-semibold">키</th>
+                                    <th class="p-3 text-left font-semibold">BMI</th>
+                                    <th class="p-3 text-left font-semibold">목표 체중</th>
+                                    <th class="p-3 text-left font-semibold">달성률</th>
+                                </tr>
+                            </thead>
+                            <tbody class="data-table-body">
+                                <!-- 데이터가 여기에 삽입됩니다. -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 수아 섹션 -->
+            <div id="suah" class="bg-[#1a202c] rounded-2xl shadow-lg p-6 flex flex-col">
+                <h2 class="member-name text-2xl font-bold mb-4 text-center"></h2>
+                <div class="bmi-calculator-section mb-6">
+                    <h3 class="text-xl font-semibold mb-3 text-white">BMI 계산기</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="suah-weight" class="block text-sm font-medium text-gray-400 mb-1">체중 (kg)</label>
+                            <input type="number" id="suah-weight" placeholder="예: 55.5" class="weight-input w-full p-3 bg-[#2d3748] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label for="suah-height" class="block text-sm font-medium text-gray-400 mb-1">키 (cm)</label>
+                            <input type="number" id="suah-height" placeholder="예: 165" class="height-input w-full p-3 bg-[#2d3748] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label for="suah-target-weight" class="block text-sm font-medium text-gray-400 mb-1">목표 체중 (kg)</label>
+                            <input type="number" id="suah-target-weight" placeholder="예: 54" class="target-weight-input w-full p-3 bg-[#2d3748] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <button class="submit-btn w-full py-3 bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold rounded-lg hover:from-blue-600 hover:to-blue-800 transition-colors shadow-lg">기록 추가</button>
+                    </div>
+                </div>
+                <div class="bmi-chart-section mb-6 flex-grow flex items-center justify-center">
+                    <canvas class="chart-canvas w-full h-auto max-h-80 md:max-h-96"></canvas>
+                </div>
+                <div class="data-table-section mt-auto">
+                    <h3 class="text-xl font-semibold mb-3 text-white">최근 데이터</h3>
+                    <div class="overflow-x-auto rounded-lg border border-gray-700">
+                        <table class="min-w-full table-auto text-sm">
+                            <thead class="bg-[#2d3748]">
+                                <tr>
+                                    <th class="p-3 text-left font-semibold">날짜</th>
+                                    <th class="p-3 text-left font-semibold">체중</th>
+                                    <th class="p-3 text-left font-semibold">키</th>
+                                    <th class="p-3 text-left font-semibold">BMI</th>
+                                    <th class="p-3 text-left font-semibold">목표 체중</th>
+                                    <th class="p-3 text-left font-semibold">달성률</th>
+                                </tr>
+                            </thead>
+                            <tbody class="data-table-body">
+                                <!-- 데이터가 여기에 삽입됩니다. -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 동혁 섹션 -->
+            <div id="donghyuk" class="bg-[#1a202c] rounded-2xl shadow-lg p-6 flex flex-col">
+                <h2 class="member-name text-2xl font-bold mb-4 text-center"></h2>
+                <div class="bmi-calculator-section mb-6">
+                    <h3 class="text-xl font-semibold mb-3 text-white">BMI 계산기</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="donghyuk-weight" class="block text-sm font-medium text-gray-400 mb-1">체중 (kg)</label>
+                            <input type="number" id="donghyuk-weight" placeholder="예: 70" class="weight-input w-full p-3 bg-[#2d3748] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label for="donghyuk-height" class="block text-sm font-medium text-gray-400 mb-1">키 (cm)</label>
+                            <input type="number" id="donghyuk-height" placeholder="예: 175" class="height-input w-full p-3 bg-[#2d3748] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label for="donghyuk-target-weight" class="block text-sm font-medium text-gray-400 mb-1">목표 체중 (kg)</label>
+                            <input type="number" id="donghyuk-target-weight" placeholder="예: 68" class="target-weight-input w-full p-3 bg-[#2d3748] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <button class="submit-btn w-full py-3 bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold rounded-lg hover:from-blue-600 hover:to-blue-800 transition-colors shadow-lg">기록 추가</button>
+                    </div>
+                </div>
+                <div class="bmi-chart-section mb-6 flex-grow flex items-center justify-center">
+                    <canvas class="chart-canvas w-full h-auto max-h-80 md:max-h-96"></canvas>
+                </div>
+                <div class="data-table-section mt-auto">
+                    <h3 class="text-xl font-semibold mb-3 text-white">최근 데이터</h3>
+                    <div class="overflow-x-auto rounded-lg border border-gray-700">
+                        <table class="min-w-full table-auto text-sm">
+                            <thead class="bg-[#2d3748]">
+                                <tr>
+                                    <th class="p-3 text-left font-semibold">날짜</th>
+                                    <th class="p-3 text-left font-semibold">체중</th>
+                                    <th class="p-3 text-left font-semibold">키</th>
+                                    <th class="p-3 text-left font-semibold">BMI</th>
+                                    <th class="p-3 text-left font-semibold">목표 체중</th>
+                                    <th class="p-3 text-left font-semibold">달성률</th>
+                                </tr>
+                            </thead>
+                            <tbody class="data-table-body">
+                                <!-- 데이터가 여기에 삽입됩니다. -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- 통합 대시보드 섹션 -->
+        <div id="unified-dashboard-container" class="mt-8 md:mt-12" style="display: none;">
+            <div class="bg-[#1a202c] rounded-2xl shadow-lg p-6 flex flex-col">
+                <h3 class="text-xl font-semibold mb-3 text-white">가족 BMI 변화 추이</h3>
+                <div class="bmi-chart-section mb-6 flex-grow flex items-center justify-center">
+                    <canvas id="unified-chart" class="w-full h-auto max-h-80 md:max-h-96"></canvas>
+                </div>
+            </div>
+            <div class="bg-[#1a202c] rounded-2xl shadow-lg p-6 mt-8">
+                <h3 class="text-xl font-semibold mb-3 text-white">통합 목표 달성 현황</h3>
+                <div class="overflow-x-auto rounded-lg border border-gray-700">
+                    <table class="min-w-full table-auto text-sm">
+                        <thead class="bg-[#2d3748]">
+                            <tr>
+                                <th class="p-3 text-left font-semibold">이름</th>
+                                <th class="p-3 text-left font-semibold">최신 체중</th>
+                                <th class="p-3 text-left font-semibold">최신 BMI</th>
+                                <th class="p-3 text-left font-semibold">목표 체중</th>
+                                <th class="p-3 text-left font-semibold">달성률</th>
+                            </tr>
+                        </thead>
+                        <tbody id="unified-table-body">
+                            <!-- 데이터가 여기에 삽입됩니다. -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="bmi-container p-4 sm:p-6 mt-8 md:mt-12 bg-[#1a202c] rounded-2xl shadow-lg">
+            <h2 class="text-2xl font-bold mb-4 text-center text-white">BMI 지수 참고표</h2>
+            <div class="text-sm text-gray-300 mb-4 text-center">
+                <p>BMI 지수는 키와 체중만으로 측정되는 지표입니다. 아래 표는 일반적인 참고 기준이며, 나이, 성별, 체형에 따라 건강한 BMI 범위는 달라질 수 있습니다.</p>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div class="bg-[#2d3748] p-3 rounded-lg flex flex-col items-center justify-center">
+                    <p class="text-lg font-semibold text-white">저체중</p>
+                    <p class="text-sm text-yellow-400">18.5 미만</p>
+                </div>
+                <div class="bg-[#2d3748] p-3 rounded-lg flex flex-col items-center justify-center">
+                    <p class="text-lg font-semibold text-white">정상 체중</p>
+                    <p class="text-sm text-green-400">18.5 ~ 24.9</p>
+                </div>
+                <div class="bg-[#2d3748] p-3 rounded-lg flex flex-col items-center justify-center">
+                    <p class="text-lg font-semibold text-white">과체중</p>
+                    <p class="text-sm text-orange-400">25.0 ~ 29.9</p>
+                </div>
+                <div class="bg-[#2d3748] p-3 rounded-lg flex flex-col items-center justify-center">
+                    <p class="text-lg font-semibold text-white">비만</p>
+                    <p class="text-sm text-red-400">30.0 이상</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 커스텀 모달 UI -->
+    <div id="custom-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-900 bg-opacity-75">
+        <div class="bg-[#1a202c] rounded-xl shadow-2xl p-6 w-11/12 max-w-sm text-center">
+            <h3 class="text-xl font-bold mb-4 text-white">알림</h3>
+            <p id="modal-message" class="text-gray-300 mb-6"></p>
+            <button id="modal-close-btn" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors">확인</button>
+        </div>
+    </div>
+</body>
 </html>

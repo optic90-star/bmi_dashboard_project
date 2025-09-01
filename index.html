@@ -233,7 +233,7 @@
                     const bmiStatusText = getBmiStatusText(latestBmi);
                     
                     const memberCard = `
-                        <div class="w-full md:w-[calc(50%-8px)] lg:w-[calc(25%-12px)] bg-[#1e2a38] p-4 rounded-xl shadow-md transition-transform hover:scale-105">
+                        <div class="w-full sm:w-[calc(50%-12px)] lg:w-[calc(25%-16px)] bg-[#1e2a38] p-4 rounded-xl shadow-md transition-transform hover:scale-[1.02]">
                             <h3 class="text-xl font-semibold mb-2">${member.name} (${member.age}, ${member.gender})</h3>
                             <div class="text-sm text-gray-400 space-y-1">
                                 <p>체형: ${member.body_type}</p>
@@ -260,7 +260,7 @@
                     const sanitizedName = member.name.replace(/\s+/g, '-');
                     const individualRate = calculateIndividualAchievementRate(member);
                     const memberDiv = document.createElement('div');
-                    memberDiv.className = 'w-full md:w-[calc(50%-8px)] lg:w-[calc(33.33%-16px)] bmi-container p-6';
+                    memberDiv.className = 'w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.33%-16px)] bmi-container p-4 sm:p-6';
                     memberDiv.innerHTML = `
                         <h2 class="text-2xl font-bold mb-4 text-center">${member.name}의 건강 대시보드</h2>
                         
@@ -275,7 +275,7 @@
                         
                         <!-- Individual Chart -->
                         <h3 class="text-xl font-semibold mb-2 text-center">체중/BMI 변화 추이</h3>
-                        <div class="w-full h-80">
+                        <div class="w-full h-[56vh] md:h-80">
                             <canvas id="individual-chart-${sanitizedName}"></canvas>
                         </div>
                     `;
@@ -503,10 +503,24 @@
         }
     </style>
 </head>
-<body class="p-6 md:p-12 min-h-screen flex flex-col items-center justify-center space-y-8">
-    <div class="w-full max-w-4xl mx-auto space-y-8">
+<body class="p-0 md:p-6 min-h-screen flex flex-col space-y-6 md:space-y-8">
+    <!-- Sticky Header -->
+    <header class="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-black/40 bg-black/60 border-b border-white/10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 md:py-4 flex items-center justify-between">
+            <h1 class="text-lg sm:text-xl md:text-2xl font-bold">수아동혁 가족 건강 대시보드</h1>
+            <div class="hidden sm:flex items-center gap-2 text-xs md:text-sm text-gray-300">
+                <span class="px-2 py-1 rounded-full bg-white/10">실시간 동기화</span>
+                <span class="px-2 py-1 rounded-full bg-white/10">Firebase</span>
+            </div>
+        </div>
+    </header>
+    <main class="px-4 sm:px-6 pt-4 md:pt-6 flex-1 flex flex-col items-center justify-start">
+    <div class="w-full max-w-7xl mx-auto space-y-6 md:space-y-8">
         <!-- Input Form (Unified and Horizontal) -->
-        <div class="bmi-container p-6">
+        <div class="bmi-container p-4 sm:p-6">
+            <!-- Small screens: enable horizontal scroll to keep inputs usable -->
+            <div class="overflow-x-auto -mx-2 sm:mx-0">
+            <div class="min-w-[720px] md:min-w-0 px-2 sm:px-0">
             <h2 class="text-2xl font-bold mb-4 text-center">가족 건강 정보 입력</h2>
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end mb-4">
                 <div class="font-bold text-sm text-gray-400">항목</div>
@@ -604,26 +618,27 @@
 
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mt-6">
                 <div></div>
-                <button onclick="handleSave('아빠')" class="w-full py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white transition-colors">
+                <button aria-label="아빠 정보 저장" onclick="handleSave('아빠')" class="w-full py-3 md:py-2 px-4 rounded-md shadow-sm text-sm md:text-base font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500">
                     저장
                 </button>
-                <button onclick="handleSave('엄마')" class="w-full py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white transition-colors">
+                <button aria-label="엄마 정보 저장" onclick="handleSave('엄마')" class="w-full py-3 md:py-2 px-4 rounded-md shadow-sm text-sm md:text-base font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500">
                     저장
                 </button>
-                <button onclick="handleSave('큰딸')" class="w-full py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white transition-colors">
+                <button aria-label="큰딸 정보 저장" onclick="handleSave('큰딸')" class="w-full py-3 md:py-2 px-4 rounded-md shadow-sm text-sm md:text-base font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500">
                     저장
                 </button>
-                <button onclick="handleSave('둘째아들')" class="w-full py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white transition-colors">
+                <button aria-label="둘째아들 정보 저장" onclick="handleSave('둘째아들')" class="w-full py-3 md:py-2 px-4 rounded-md shadow-sm text-sm md:text-base font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500">
                     저장
                 </button>
             </div>
+            </div>
         </div>
         
-        <hr class="border-t border-gray-600 my-8">
+        <hr class="border-t border-gray-600 my-6 md:my-8">
 
         <!-- Individual Family Dashboards -->
         <h2 class="text-2xl font-bold mb-4 text-center">개별 건강 대시보드</h2>
-        <div id="individual-dashboards-container" class="space-y-8 flex flex-wrap gap-4">
+        <div id="individual-dashboards-container" class="flex flex-col sm:flex-row sm:flex-wrap gap-4 sm:gap-6">
             <!-- Dynamic dashboards will be inserted here -->
             <p class="text-gray-400 text-center w-full">개별 가족 구성원 대시보드를 보려면 정보를 입력해주세요.</p>
         </div>
@@ -642,13 +657,16 @@
                 </div>
             </div>
 
-            <div class="w-full h-80">
+            <div class="w-full h-[56vh] md:h-80">
                 <canvas id="bmi-chart"></canvas>
             </div>
         </div>
         
         <!-- Registered Family List -->
-        <div class="bmi-container p-6">
+        <div class="bmi-container p-4 sm:p-6">
+            <!-- Small screens: enable horizontal scroll to keep inputs usable -->
+            <div class="overflow-x-auto -mx-2 sm:mx-0">
+            <div class="min-w-[720px] md:min-w-0 px-2 sm:px-0">
             <h2 class="text-2xl font-bold mb-4">등록된 가족</h2>
             <div id="family-list-container" class="flex flex-wrap gap-4 w-full justify-center md:justify-start">
                 <p class="text-gray-400">가족 정보를 추가해주세요.</p>
@@ -656,7 +674,10 @@
         </div>
 
         <!-- BMI Reference Table -->
-        <div class="bmi-container p-6">
+        <div class="bmi-container p-4 sm:p-6">
+            <!-- Small screens: enable horizontal scroll to keep inputs usable -->
+            <div class="overflow-x-auto -mx-2 sm:mx-0">
+            <div class="min-w-[720px] md:min-w-0 px-2 sm:px-0">
             <h2 class="text-2xl font-bold mb-4 text-center">BMI 지수 참고표</h2>
             <div class="text-sm text-gray-300 mb-4 text-center">
                 <p>BMI 지수는 키와 체중만으로 측정되는 지표입니다. 아래 표는 일반적인 참고 기준이며, 나이, 성별, 체형에 따라 건강한 BMI 범위는 달라질 수 있습니다.</p>
@@ -681,5 +702,6 @@
             </div>
         </div>
     </div>
+    </main>
 </body>
 </html>
